@@ -849,7 +849,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 3;                       // versão da interface (sobe a cada publicação)
+const APP_V = 4;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -936,11 +936,13 @@ function calcular(tri) {
   const sv = SERV[tri.servico] || SERV["613287"];
   return { area, areaMedida, volume: sv.cbuq ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
 }
-const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) p.push(e.bairro || "bairro a confirmar", e.mun || "Aracaju"); return p.join(", "); };
+const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) p.push(e.bairro || "bairro a confirmar", e.mun || "município a confirmar"); return p.join(", "); };
 function registro(r) { const c = calcular(r.tri || {}); return Object.assign(r, { _st: status(r), _c: c }); }
 function nomePerfil(id) { const p = PERFIS.find(x => x.id === id); return (p && p.id === EU?.id ? EU.nome : null) || (NOMES[id]) || (p ? p.nome : id); }
 let NOMES = {};               // nomes personalizados (gerente/programador) vindos do servidor ou do aparelho
 const pode = a => !!(EU && EU.pode[a]);
+/* agentes: área privada do idealizador (só o perfil do Estevam vê) */
+const privado = () => EU?.id === "estevam";
 
 /* sequência do dia (ordem de cadastro, todas as OS ativas do dia) */
 function seqDoDia(dia) {
@@ -1397,7 +1399,7 @@ function lista(f = {}) {
 
 /* ---------- cartão de OS ---------- */
 function cartao(r, sel) {
-  const a = agentesDaOS(r).filter(x => x.n >= 2);
+  const a = privado() ? agentesDaOS(r).filter(x => x.n >= 2) : [];
   return `<div class="os ${r._st}" data-os="${r.id}">
     ${sel ? `<input type="checkbox" data-sel="${r.id}" ${SEL?.has(r.id) ? "checked" : ""} onclick="event.stopPropagation()">` : ""}
     <img class="th" data-th="${r.tri.fotos?.[0]?.p || ""}" alt="">
@@ -1448,9 +1450,9 @@ function telaPainel(m) {
   <div class="card"><h2>🧱 Por pavimentação <span class="r">falta fazer · total</span></h2>
     ${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), tt = totais(l); return `<div class="achado" data-ir="lista" data-tp="${k}" style="align-items:center"><span style="font-size:22px">${v.ic}</span><span style="flex:1"><b>${v.n}</b><br><span class="small muted mono">falta ${p.n} OS · ${nf(p.area)} m²${k === "asfalto" ? ` · ${nf(p.massa)} t` : ""}</span></span><span class="mono small" style="text-align:right">${tt.n} OS<br>${nf(tt.area)} m²</span></div>`; }).join("")}
   </div>
-  <div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">${nAl ? `<span class="tag pend">${nAl} alerta(s)</span>` : '<span class="tag executada">tudo certo</span>'} ›</span></h2>
+  ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">${nAl ? `<span class="tag pend">${nAl} alerta(s)</span>` : '<span class="tag executada">tudo certo</span>'} ›</span></h2>
     ${ach.filter(g => g.itens.some(i => i.n >= 2)).slice(0, 3).map(g => `<div class="small">${g.ic} <b>${g.nome}:</b> ${esc(g.itens.find(i => i.n >= 2).t)}</div>`).join("") || '<div class="small muted">Endereço, fotos, cargas, serviço, prazo e conferência sem pendências.</div>'}
-  </div>
+  </div>` : ""}
   <div class="card"><h2>📈 Últimos 14 dias <span class="r"><span style="color:var(--tri)">■</span> triadas <span style="color:var(--exec)">■</span> executadas</span></h2>
     <svg viewBox="0 0 280 110" style="width:100%;height:auto">${serie.map((s, i) => { const x = i * 20 + 2, h1 = s.tri / mx * 80, h2 = s.exe / mx * 80; return `<rect x="${x}" y="${88 - h1}" width="7.5" height="${h1}" rx="1.5" fill="#f2b705"/><rect x="${x + 8.5}" y="${88 - h2}" width="7.5" height="${h2}" rx="1.5" fill="#23764a"/>${s.tri ? `<text x="${x + 3.7}" y="${85 - h1}" font-size="7" text-anchor="middle" fill="#5f665d">${s.tri}</text>` : ""}<text x="${x + 8}" y="100" font-size="6.5" text-anchor="middle" fill="#5f665d">${s.d.slice(8)}</text>`; }).join("")}<line x1="0" x2="280" y1="88.5" y2="88.5" stroke="#dcdbd3"/></svg>
   </div>
@@ -1493,12 +1495,12 @@ function telaLista(m) {
 async function abrirOS(id) {
   const r = OS.get(id); if (!r) return;
   $$(".sheet-bg").forEach(x => x.remove());
-  const T = r.tri, c = r._c, ag = agentesDaOS(r);
+  const T = r.tri, c = r._c, ag = privado() ? agentesDaOS(r) : [];
   const meu = r.criado.por === EU.id;
   const s = folha(`
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
-    <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "Aracaju")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
+    <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
     <div class="calc">${c.massa || SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
     <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Sem CBUQ"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
@@ -1625,7 +1627,7 @@ function compartilhar(t) { if (ANDROID) window.Android.share(t); else if (naviga
 /* texto no formato do RDS */
 function textoOS(r) {
   const seq = seqDoDia(r.tri.dia); const n = seq.findIndex(x => x.id === r.id) + 1; const t = totais(seq); const c = r._c, T = r.tri;
-  const al = agentesDaOS(r).map(a => a.t);
+  const al = privado() ? agentesDaOS(r).map(a => a.t) : [];
   return `OS ${r.os} cadastrada, a ${n || "?"}ª do relatório: ${endTxt(T.end)}, com ${nf(c.area)} m²${c.massa ? ` e ${nf(c.massa)} t` : ""}. ${TIPOS[tipoDe(T)].n} — serviço ${T.servico} (${(SERV[T.servico] || {}).n || ""}${T.servicoConfirmado ? "" : " — confirmar"}), ${T.entulho ? "com" : "sem"} remoção de entulhos.${al.length ? " ⚠ " + al.join("; ") + "." : ""} Acumulado de ${T.dia === isoDia() ? "hoje" : brDia(T.dia)}: ${t.n} OS, ${nf(t.area)} m² e ${nf(t.massa)} t.`;
 }
 
@@ -1655,7 +1657,7 @@ function abrirForm(r, op = {}) {
       <div><label class="f">Nº (imóvel)</label><input class="in" id="fnum" value="${esc(T.end.num || "")}"></div>
       <div><label class="f">Nº na fachada</label><input class="in" id="ffach" value="${esc(T.end.numFachada || "")}" placeholder="se diferente"></div>
       <div><label class="f">Bairro</label><input class="in" id="fbai" value="${esc(T.end.bairro || "")}"></div>
-      <div><label class="f">Município</label><input class="in" id="fmun" value="${esc(T.end.mun || "Aracaju")}"></div>
+      <div><label class="f">Município</label><input class="in" id="fmun" value="${esc(T.end.mun || "")}" placeholder="Preenche pela coordenada"></div>
     </div>
     <label class="f">Pavimentação</label>
     <div class="seg" id="ftipo">${Object.entries(TIPOS).map(([k, v]) => `<button data-tp="${k}" class="${tipoDe(T) === k ? "on" : ""}">${v.ic} ${v.n}</button>`).join("")}</div>
@@ -1798,7 +1800,7 @@ function abrirForm(r, op = {}) {
     T.trechos = T.trechos.filter(t => num(t.c) > 0 && num(t.l) > 0).map(t => ({ c: String(t.c).replace(".", ","), l: String(t.l).replace(".", ",") }));
     if (!T.trechos.length && !num($("#faos", s).value) && !confirm("Salvar sem medidas?")) { btn.disabled = false; btn.textContent = "💾 Salvar triagem"; return; }
     T.areaOS = num($("#faos", s).value) || null;
-    T.end = { rua: $("#frua", s).value.trim(), num: $("#fnum", s).value.trim(), numFachada: $("#ffach", s).value.trim(), bairro: $("#fbai", s).value.trim(), mun: $("#fmun", s).value.trim() || "Aracaju" };
+    T.end = { rua: $("#frua", s).value.trim(), num: $("#fnum", s).value.trim(), numFachada: $("#ffach", s).value.trim(), bairro: $("#fbai", s).value.trim(), mun: $("#fmun", s).value.trim() };
     T.end.aConfirmar = !T.end.rua;
     if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; }
     T.obs = $("#fobs", s).value.trim();
@@ -1964,6 +1966,7 @@ const AGENTES = [
     f(r) { const T = r.tri, a = [];
       if (T.lat == null) a.push({ n: 2, t: "Sem coordenada" });
       if (!T.end?.rua) a.push({ n: 2, t: "Rua não identificada — endereço a confirmar" });
+      if (!T.end?.mun) a.push({ n: 1, t: "Município a confirmar" });
       else if (!T.end?.bairro) a.push({ n: 1, t: "Bairro a confirmar" });
       if (T.end?.numFachada && T.end?.num && T.end.numFachada !== T.end.num) a.push({ n: 1, t: `Nº da fachada (${T.end.numFachada}) diferente do nº do endereço (${T.end.num})` });
       if (T.lat != null) { const lon = (T.fotos || []).filter(f => f.lat != null && distM([T.lat, T.lng], [f.lat, f.lng]) > 150); if (lon.length) a.push({ n: 1, t: `${lon.length} foto(s) a mais de 150 m do ponto` }); }
@@ -2013,6 +2016,7 @@ function rodarAgentes() {
   });
 }
 function telaAgentes(m) {
+  if (!privado()) { VIEW = "painel"; return telaPainel(m); }
   const res = rodarAgentes();
   m.innerHTML = `<div class="hero"><div style="font-size:13px;opacity:.8">CONFERÊNCIA AUTOMÁTICA</div><h2>🤖 Agentes do Triagem OS</h2><div style="font-size:13.5px;opacity:.85">Eles olham todas as OS sozinhos, a cada mudança, e avisam o que precisa de atenção antes de chegar no RDS.</div></div>` +
     res.map(g => { const p = g.itens.filter(i => i.n >= 2).length, w = g.itens.length - p; return `<div class="card"><div class="ag"><div class="ic">${g.ic}</div><div><div class="n">${g.nome}</div><div class="d">${g.d}</div></div><span class="ct ${p ? "b" : w ? "w" : ""}">${g.itens.length || "✓"}</span></div>
@@ -2050,19 +2054,19 @@ function dadosRel() {
 }
 function dadosRel0() {
   const all = [...OS.values()].filter(r => r._st !== "cancelada");
-  if (REL.tipo === "rds") { let l = seqDoDia(REL.dia); if (REL.quem !== "todos") l = l.filter(r => r.criado.por === REL.quem); return { lista: l, titulo: "Vistoria Prévia de Pavimentação — Aracaju", per: brDia(REL.dia) }; }
-  if (REL.tipo === "pend") return { lista: all.filter(r => r._st === "triada" || r._st === "programada").sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "") || a.tri.dia.localeCompare(b.tri.dia)), titulo: "OS pendentes de execução — Pavimentação Aracaju", per: "posição em " + brDia(isoDia()) };
+  if (REL.tipo === "rds") { let l = seqDoDia(REL.dia); if (REL.quem !== "todos") l = l.filter(r => r.criado.por === REL.quem); return { lista: l, titulo: "Vistoria Prévia de Pavimentação — Regional Metropolitana", per: brDia(REL.dia) }; }
+  if (REL.tipo === "pend") return { lista: all.filter(r => r._st === "triada" || r._st === "programada").sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "") || a.tri.dia.localeCompare(b.tri.dia)), titulo: "OS pendentes de execução — Pavimentação Regional Metropolitana", per: "posição em " + brDia(isoDia()) };
   const dentro = d => d && d >= REL.de && d <= REL.ate;
-  if (REL.tipo === "exec") return { lista: all.filter(r => r._st === "executada" && dentro(r.exec.data)).sort((a, b) => a.exec.data.localeCompare(b.exec.data)), titulo: "OS executadas — Pavimentação Aracaju", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
-  return { lista: all.filter(r => dentro(r.tri.dia) || dentro(r.prog?.data) || dentro(r.exec?.data)).sort((a, b) => a.tri.dia.localeCompare(b.tri.dia)), titulo: "Acompanhamento de OS — Pavimentação Aracaju", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
+  if (REL.tipo === "exec") return { lista: all.filter(r => r._st === "executada" && dentro(r.exec.data)).sort((a, b) => a.exec.data.localeCompare(b.exec.data)), titulo: "OS executadas — Pavimentação Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
+  return { lista: all.filter(r => dentro(r.tri.dia) || dentro(r.prog?.data) || dentro(r.exec?.data)).sort((a, b) => a.tri.dia.localeCompare(b.tri.dia)), titulo: "Acompanhamento de OS — Pavimentação Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
 }
 const encarregadoRel = () => REL.tipo === "rds" && REL.quem !== "todos" ? nomePerfil(REL.quem) : "Estevam Marques";
 
 async function abrirRel() {
   const d = dadosRel(); const el = $("#rel"); const t = totais(d.lista);
   document.body.classList.add("relmode"); window.scrollTo(0, 0);
-  const cab = `<div class="cab"><div class="k">RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — ARACAJU</div><h1>${esc(d.titulo)}</h1>
-    <div>Equipe de Asfalto — Aracaju · Encarregado: <b>${esc(encarregadoRel())}</b> · ${esc(d.per)}</div></div>`;
+  const cab = `<div class="cab"><div class="k">RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — REGIONAL METROPOLITANA</div><h1>${esc(d.titulo)}</h1>
+    <div>Equipe de Asfalto — Regional Metropolitana · Encarregado: <b>${esc(encarregadoRel())}</b> · ${esc(d.per)}</div></div>`;
   const res = `<div class="res"><div>OS<b>${t.n}</b></div><div>Área<b>${nf(t.area)} m²</b></div><div>Volume<b>${nf(t.vol, 3)} m³</b></div><div>CBUQ<b>${nf(t.massa)} t</b></div></div>
     <div style="font-size:11px;color:#555;margin:-6px 0 10px">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t/m²) · caminhão ${CARGA} t → ${Math.ceil(t.massa / CARGA) || 0} carga(s)</div>`;
   const porTipo = Object.entries(TIPOS).map(([k, v]) => [v, totais(d.lista.filter(r => tipoDe(r.tri) === k))]).filter(([, x]) => x.n);
@@ -2091,7 +2095,7 @@ function secaoRDS(r, n) {
   const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}${r.exec.equipe ? " — equipe " + r.exec.equipe : ""}`;
   const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
   return `<div class="sec"><h2>Sequência ${n} — OS ${esc(r.os)} — ${esc(endTxt(T.end, 1))}</h2><table>
-    <tr><td>Bairro / Município</td><td>${esc(T.end?.bairro || "a confirmar")} — ${esc(T.end?.mun || "Aracaju")}/SE</td></tr>
+    <tr><td>Bairro / Município</td><td>${esc(T.end?.bairro || "a confirmar")} — ${esc(T.end?.mun || "município a confirmar")}/SE</td></tr>
     <tr><td>Coordenadas</td><td>${T.lat != null ? `<a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)} — 🧭 abrir no Google Maps</a>` : "—"}</td></tr>
     <tr><td>Pavimentação</td><td>${TIPOS[tipoDe(T)].n}</td></tr>
     <tr><td>Medidas</td><td>${(T.trechos || []).map(t => `${t.c} × ${t.l} m`).join(" + ") || "—"}${num(T.areaOS) ? ` (total da OS: ${nf(num(T.areaOS))} m²)` : ""}</td></tr>
@@ -2166,9 +2170,9 @@ async function gerarDocx() {
   const d = dadosRel(); const t = totais(d.lista); const media = [], links = []; let body = ""; _imgN = 0;
   const addLink = url => { const rid = "rIdL" + (links.length + 1); links.push({ rid, url }); return rid; };
   const addImg = async (src, link) => { const j = await imgJPG(src); if (!j) return ""; const rid = "rIdImg" + (media.length + 1); media.push({ rid, n: `media/img${media.length + 1}.jpg`, d: j.u8 }); const w = 200; return wImg(rid, w, Math.round(w * j.r), link); };
-  body += wP("RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — Aracaju", { b: 1, sz: 9, cor: "555555" });
+  body += wP("RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — Regional Metropolitana", { b: 1, sz: 9, cor: "555555" });
   body += wP(d.titulo, { b: 1, sz: 16, depois: 40 });
-  body += wP(`Equipe de Asfalto — Aracaju · Encarregado: ${encarregadoRel()} · ${d.per}`, { sz: 10, depois: 120 });
+  body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${encarregadoRel()} · ${d.per}`, { sz: 10, depois: 120 });
   body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "3 cm (2,4 t/m³ → 0,072 t/m²)"]]);
   if (REL.tipo === "rds") {
     let n = 0;
@@ -2177,7 +2181,7 @@ async function gerarDocx() {
       const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}`;
       const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
       body += wP(`Sequência ${n} — OS ${r.os} — ${endTxt(T.end, 1)}`, { b: 1, sz: 11.5, cor: "FFFFFF", fundo: "1F2A1D", antes: 240, depois: 60 });
-      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "Aracaju"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(SERV[T.servico].cbuq ? [["Volume", nf(c.volume, 3) + " m³"], ["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.criado.em)}`], ["Observação", obs || "—"]]);
+      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(SERV[T.servico].cbuq ? [["Volume", nf(c.volume, 3) + " m³"], ["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.criado.em)}`], ["Observação", obs || "—"]]);
       let ims = "";
       for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) ims += await addImg(u); }
       let lk = null;
@@ -2209,7 +2213,7 @@ async function gerarDocx() {
 function telaPerfil(primeira) {
   const m = $("#main"); $("#nav").innerHTML = "";
   let esc_ = EU?.id || null;
-  m.innerHTML = `<div class="hero"><div style="font-size:13px;opacity:.8">TRIAGEM OS · PAVIMENTAÇÃO ARACAJU</div><h2>${primeira ? "Quem vai usar este celular?" : "Trocar perfil"}</h2><div style="font-size:13.5px;opacity:.85">Cada perfil vê tudo em tempo real; o que pode fazer muda conforme a função.</div></div>
+  m.innerHTML = `<div class="hero"><div style="font-size:13px;opacity:.8">TRIAGEM OS · PAVIMENTAÇÃO · REGIONAL METROPOLITANA</div><h2>${primeira ? "Quem vai usar este celular?" : "Trocar perfil"}</h2><div style="font-size:13.5px;opacity:.85">Cada perfil vê tudo em tempo real; o que pode fazer muda conforme a função.</div></div>
     ${PERFIS.map(p => `<div class="perfil ${esc_ === p.id ? "on" : ""}" data-pf="${p.id}"><div class="avatar">${iniciais(nomePerfil(p.id))}</div><div style="flex:1"><b>${esc(nomePerfil(p.id))}</b><div class="pd">${esc(p.papel)}</div><div class="pd">${[p.pode.triar && "triagem", p.pode.programar && "programação/rota", p.pode.baixa && "baixa", p.pode.conferir && "conferência", "relatórios"].filter(Boolean).join(" · ")}</div></div></div>`).join("")}
     <div id="pfnome"></div>
     <button class="btn y w" id="pfok" style="margin-top:8px" ${esc_ ? "" : "disabled"}>Entrar</button>${CREDITO}`;
@@ -2229,7 +2233,7 @@ function telaPerfil(primeira) {
 function telaAjustes(m) {
   const n = OS.size;
   m.innerHTML = `<div class="perfil on"><div class="avatar">${iniciais(EU.nome)}</div><div style="flex:1"><b>${esc(EU.nome)}</b><div class="pd">${esc(EU.papel)}</div></div><button class="btn sm" id="ajtroca">Trocar</button></div>
-  <div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>
+  ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Área privada · conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>` : ""}
   <div class="card"><h2>☁️ Servidor</h2>
     <div class="kv small"><dt>Situação</dt><dd>${temServidor() ? ({ ok: "Conectado", pend: "Enviando", off: "Sem internet", erro: "Erro", init: "Conectando", local: "—" }[SYNC.estado] || SYNC.estado) : "Sem chave — só neste celular"}</dd>
     <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
