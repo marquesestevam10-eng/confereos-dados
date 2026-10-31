@@ -717,13 +717,15 @@ nav.bot button.plus svg{width:26px;height:26px}
 .os .th{width:58px;height:58px;border-radius:9px;background:var(--soft);flex:none;object-fit:cover}
 .os .b{flex:1;min-width:0}
 .os .t1{display:flex;align-items:center;gap:6px;font-weight:700}
-.os .t1 .num{font-family:var(--mono)}
+.os .t1{flex-wrap:wrap}.os .t1 .num{font-family:var(--mono);white-space:nowrap}
 .os .end{font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .os .meta{font-size:12px;color:var(--muted);margin-top:2px}
 .os .al{font-size:12px;color:var(--bad);margin-top:3px}
 .os input[type=checkbox]{width:22px;height:22px;margin:16px 0 0;flex:none}
 .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.3px}
 .tag.triada{background:var(--tri-bg);color:var(--tri)}.tag.programada{background:var(--prog-bg);color:var(--prog)}.tag.executada{background:var(--exec-bg);color:var(--exec)}.tag.cancelada{background:var(--canc-bg);color:var(--canc)}
+.tag.dupt{background:var(--bad-bg);color:var(--bad)}
+.alert.dup a{color:inherit;font-weight:700}
 .tag.conf{background:#e9e3f6;color:#5a3e9e}.tag.pend{background:var(--warn-bg);color:var(--warn)}
 .btn{border:0;border-radius:11px;padding:11px 14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--soft);color:var(--ink);text-decoration:none;font-size:14.5px}
 .btn.p{background:var(--asfalto);color:#fff}.btn.y{background:var(--amarelo);color:var(--amarelo-ink)}
@@ -849,7 +851,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 4;                       // versão da interface (sobe a cada publicação)
+const APP_V = 5;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -961,6 +963,32 @@ function vida(r) {
 }
 function vidaTxt(r) { const v = vida(r); return v.canc ? "cancelada após " + duracao(v.ms) : v.feita ? "feita em " + duracao(v.ms) : "aberta há " + duracao(v.ms); }
 const vidaCor = r => { const v = vida(r); if (v.feita) return "var(--exec)"; const h = v.ms / 36e5; return h >= 72 ? "var(--bad)" : h >= 24 ? "var(--warn)" : "var(--muted)"; };
+/* ---------- alerta de duplicidade (mesmo endereço/número ou mesmo ponto) ----------
+   Evita a equipe ir num local que já foi feito: viagem perdida. */
+const semAc = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(rua|r|avenida|av|travessa|tv|trav|praca|pc|alameda|al|rodovia|rod)\b\.?/g, "").replace(/[^a-z0-9]/g, "");
+const chaveEnd = e => { const rua = semAc(e?.rua), n = String(e?.num || e?.numFachada || "").replace(/\D/g, ""); return rua && n ? rua + "|" + n + "|" + semAc(e?.mun) : null; };
+const DUP_M = 12;   // metros: mesmo ponto
+function duplicatas(r) {
+  const T = r.tri || r, k = chaveEnd(T.end), out = [];
+  for (const x of OS.values()) {
+    if (x.id === r.id || x._st === "cancelada") continue;
+    let motivo = null;
+    if (k && chaveEnd(x.tri.end) === k) motivo = "mesmo endereço e número";
+    else if (T.lat != null && x.tri.lat != null) { const d = distM([T.lat, T.lng], [x.tri.lat, x.tri.lng]); if (d <= DUP_M) motivo = `mesmo ponto (${Math.round(d)} m)`; }
+    if (motivo) out.push({ r: x, motivo, mesmaOS: x.os === (r.os || T.os) });
+  }
+  const ordem = { executada: 0, programada: 1, triada: 2 };
+  return out.sort((a, b) => ordem[a.r._st] - ordem[b.r._st]);
+}
+function dupTxt(d) {
+  const x = d.r; const st = x._st === "executada" ? `JÁ EXECUTADA em ${brDia(x.exec.data)}` : x._st === "programada" ? `programada p/ eq. ${x.prog.equipe} em ${brDia(x.prog.data)}` : `triada em ${brDia(x.tri.dia)}`;
+  return `OS ${x.os} — ${d.motivo} — ${st}`;
+}
+function dupHTML(lista, curto) {
+  if (!lista.length) return "";
+  const grave = lista.some(d => d.r._st === "executada");
+  return `<div class="alert ${grave ? "b" : "w"} dup">⚠️ <span><b>Possível duplicidade${grave ? " — local já executado" : ""}</b>${curto ? "" : "<br>Confira antes de mandar a equipe, pra não dar viagem perdida."}${lista.map(d => `<br>• <a href="#" data-dupos="${d.r.id}">${esc(dupTxt(d))}</a>`).join("")}</span></div>`;
+}
 function hist(r, acao, extra) { (r.hist = r.hist || []).push(Object.assign({ em: Date.now(), por: EU.id, acao }, extra || {})); }
 
 /* mescla dois registros da mesma OS, seção por seção (a mais nova vence) */
@@ -1390,6 +1418,7 @@ function lista(f = {}) {
   if (f.st === "ativas") l = l.filter(r => r._st === "triada" || r._st === "programada");
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
   const hoje = isoDia();
+  if (f.st === "dup") l = [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length);
   if (f.tipo && f.tipo !== "todos") l = l.filter(r => tipoDe(r.tri) === f.tipo);
   if (f.per === "hoje") l = l.filter(r => r.tri.dia === hoje || r.exec?.data === hoje || r.prog?.data === hoje);
   if (f.per === "semana") l = l.filter(r => diasEntre(r.tri.dia, hoje) <= 7);
@@ -1404,7 +1433,7 @@ function cartao(r, sel) {
     ${sel ? `<input type="checkbox" data-sel="${r.id}" ${SEL?.has(r.id) ? "checked" : ""} onclick="event.stopPropagation()">` : ""}
     <img class="th" data-th="${r.tri.fotos?.[0]?.p || ""}" alt="">
     <div class="b">
-      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}</div>
+      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
       <div class="end">${esc(endTxt(r.tri.end, 1))}</div>
       <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono">${nf(r._c.massa)} t</b>` : ""}</div>
       <div class="meta">${r._st === "programada" ? `🚚 Eq. ${esc(r.prog.equipe)} · ${brDia(r.prog.data)}` : r._st === "executada" ? `✅ ${brDia(r.exec.data)} por ${esc(nomePerfil(r.exec.por))}` : `Triada ${brDia(r.tri.dia)} · ${esc(nomePerfil(r.criado.por).split(" ")[0])}`}</div>
@@ -1447,6 +1476,7 @@ function telaPainel(m) {
     <div class="bar"><i style="width:${pctExec}%"></i></div><div class="small muted" style="margin-top:4px">${pctExec}% das OS triadas já executadas</div>
     ${pode("triar") ? `<div class="row" style="margin-top:12px"><button class="btn y" data-nav="triar">📷 Nova triagem</button><button class="btn" data-act="voz-rapida">🎤 Por áudio</button></div>` : ""}
   </div>
+  ${(() => { const dd = all.filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length); const fe = dd.filter(r => duplicatas(r).some(d => d.r._st === "executada")); return dd.length ? `<div class="card" data-ir="lista" data-st="dup" style="cursor:pointer;border-left:5px solid var(--bad)"><h2>⚠️ Possível duplicidade <span class="r">${dd.length} OS ›</span></h2><div class="small">${fe.length ? `<b style="color:var(--bad)">${fe.length} OS em local que já foi executado.</b> ` : ""}Mesmo endereço/número ou mesmo ponto de outra OS. Confira antes de programar, pra não dar viagem perdida.</div></div>` : ""; })()}
   <div class="card"><h2>🧱 Por pavimentação <span class="r">falta fazer · total</span></h2>
     ${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), tt = totais(l); return `<div class="achado" data-ir="lista" data-tp="${k}" style="align-items:center"><span style="font-size:22px">${v.ic}</span><span style="flex:1"><b>${v.n}</b><br><span class="small muted mono">falta ${p.n} OS · ${nf(p.area)} m²${k === "asfalto" ? ` · ${nf(p.massa)} t` : ""}</span></span><span class="mono small" style="text-align:right">${tt.n} OS<br>${nf(tt.area)} m²</span></div>`; }).join("")}
   </div>
@@ -1472,7 +1502,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   m.innerHTML = `
   <input class="search" id="q" placeholder="🔎 Buscar OS, rua, bairro, equipe…" value="${esc(FILTRO.q)}">
@@ -1503,6 +1533,7 @@ async function abrirOS(id) {
     <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
     <div class="calc">${c.massa || SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
     <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Sem CBUQ"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
+    ${r._st !== "cancelada" ? dupHTML(duplicatas(r)) : ""}
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
     <div class="card" style="margin-top:10px"><dl class="kv">
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.criado.em)}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
@@ -1539,6 +1570,7 @@ async function abrirOS(id) {
   for (const i of $$("img[data-full]", s)) fotoURL(i.dataset.full).then(u => { if (u) i.src = u; });
   if (T.lat != null) miniMapa(T.lat, T.lng, "OS " + r.os).then(u => { const i = $("#dmap", s); if (u && i) i.src = u; });
 }
+document.addEventListener("click", e => { const a = e.target.closest("[data-dupos]"); if (a) { e.preventDefault(); e.stopPropagation(); abrirOS(a.dataset.dupos); } }, true);
 document.addEventListener("click", e => { const i = e.target.closest("img[data-full]"); if (!i || !i.src) return; const d = document.createElement("div"); d.className = "lightbox"; d.innerHTML = `<img src="${i.src}">`; d.onclick = () => d.remove(); document.body.appendChild(d); });
 
 /* ---------- ações ---------- */
@@ -1562,6 +1594,7 @@ function modalProgramar(ids) {
   const p0 = rs[0]?.prog && ativa(rs[0].prog) ? rs[0].prog : {};
   const s = folha(`<h3>🚚 Programar ${rs.length > 1 ? rs.length + " OS" : "OS " + esc(rs[0].os)}</h3>
     <div class="small muted">${nf(t.area)} m² · ${nf(t.massa)} t · ${Math.ceil(t.massa / CARGA) || 0} carga(s) de ${CARGA} t</div>
+    ${rs.map(r => { const d = duplicatas(r); return d.length ? `<div class="small" style="margin-top:6px"><b>OS ${esc(r.os)}:</b></div>` + dupHTML(d, 1) : ""; }).join("")}
     <label class="f">Equipe</label>${campoEquipe("peq", p0.equipe)}
     <label class="f">Data</label><input class="in" type="date" id="pdt" value="${p0.data || somaDias(isoDia(), 1)}">
     <label class="f">Observação</label><input class="in" id="pobs" value="${esc(p0.obs || "")}">
@@ -1627,7 +1660,7 @@ function compartilhar(t) { if (ANDROID) window.Android.share(t); else if (naviga
 /* texto no formato do RDS */
 function textoOS(r) {
   const seq = seqDoDia(r.tri.dia); const n = seq.findIndex(x => x.id === r.id) + 1; const t = totais(seq); const c = r._c, T = r.tri;
-  const al = privado() ? agentesDaOS(r).map(a => a.t) : [];
+  const al = (privado() ? agentesDaOS(r).map(a => a.t) : []).concat(duplicatas(r).map(d => "possível duplicidade: " + dupTxt(d)));
   return `OS ${r.os} cadastrada, a ${n || "?"}ª do relatório: ${endTxt(T.end)}, com ${nf(c.area)} m²${c.massa ? ` e ${nf(c.massa)} t` : ""}. ${TIPOS[tipoDe(T)].n} — serviço ${T.servico} (${(SERV[T.servico] || {}).n || ""}${T.servicoConfirmado ? "" : " — confirmar"}), ${T.entulho ? "com" : "sem"} remoção de entulhos.${al.length ? " ⚠ " + al.join("; ") + "." : ""} Acumulado de ${T.dia === isoDia() ? "hoje" : brDia(T.dia)}: ${t.n} OS, ${nf(t.area)} m² e ${nf(t.massa)} t.`;
 }
 
@@ -1659,6 +1692,7 @@ function abrirForm(r, op = {}) {
       <div><label class="f">Bairro</label><input class="in" id="fbai" value="${esc(T.end.bairro || "")}"></div>
       <div><label class="f">Município</label><input class="in" id="fmun" value="${esc(T.end.mun || "")}" placeholder="Preenche pela coordenada"></div>
     </div>
+    <div id="fdup"></div>
     <label class="f">Pavimentação</label>
     <div class="seg" id="ftipo">${Object.entries(TIPOS).map(([k, v]) => `<button data-tp="${k}" class="${tipoDe(T) === k ? "on" : ""}">${v.ic} ${v.n}</button>`).join("")}</div>
     <label class="f">Serviço</label>
@@ -1704,6 +1738,7 @@ function abrirForm(r, op = {}) {
     if (l != null) { T.trechos[l].l = e.target.value; const sp = e.target.parentNode.children[3]; const t = T.trechos[l]; sp.textContent = num(t.c) && num(t.l) ? nf(num(t.c) * num(t.l)) : ""; calc(); }
     if (e.target.id === "faos") calc();
     if (e.target.id === "fos") checaOS();
+    if (["frua", "fnum", "ffach", "fmun"].includes(e.target.id)) checaDup();
   });
   s.addEventListener("click", e => { const x = e.target.closest("[data-tx]"); if (x) { T.trechos.splice(+x.dataset.tx, 1); if (!T.trechos.length) T.trechos.push({ c: "", l: "" }); desenhaTrechos(); } });
   function opcoesServ(tp, sel) {
@@ -1727,6 +1762,14 @@ function abrirForm(r, op = {}) {
     const dup = [...OS.values()].find(x => x.os === v && (!r || x.id !== r.id) && x._st !== "cancelada");
     if (dup) al.push(["b", `OS ${v} já cadastrada (${ST_NOME[dup._st]}, ${brDia(dup.tri.dia)})`]);
     $("#fosal", s).innerHTML = al.map(([k, t]) => `<div class="alert ${k}">⚠ ${esc(t)}</div>`).join("");
+    checaDup();
+  }
+  /* duplicidade: mesmo endereço/número ou mesmo ponto de outra OS */
+  function checaDup() {
+    const tmp = { id: r ? r.id : "__novo", os: $("#fos", s).value.trim().toUpperCase(), tri: { end: { rua: $("#frua", s).value, num: $("#fnum", s).value, numFachada: $("#ffach", s).value, mun: $("#fmun", s).value }, lat: LOC ? LOC.lat : null, lng: LOC ? LOC.lng : null } };
+    const d = duplicatas(tmp).filter(x => !x.mesmaOS);
+    $("#fdup", s).innerHTML = dupHTML(d);
+    return d;
   }
   // ---- voz
   async function porVoz() {
@@ -1757,6 +1800,7 @@ function abrirForm(r, op = {}) {
       if (e) { if (!$("#frua", s).value) set("frua", e.rua); if (!$("#fnum", s).value) set("fnum", e.num); if (!$("#fbai", s).value) set("fbai", e.bairro); if (e.mun) set("fmun", e.mun); aviso("📍 " + esc([e.rua, e.bairro, e.mun].filter(Boolean).join(", "))); }
       else aviso("Sem endereço para essa coordenada: preencha a rua.");
     }
+    checaDup();
   }
   function desenhaFotos() {
     const box = $("#ffotos", s);
@@ -1793,6 +1837,8 @@ function abrirForm(r, op = {}) {
     const os = $("#fos", s).value.trim().toUpperCase().replace(/\s/g, "");
     if (!os) return aviso("Informe o número da OS");
     if (FN.some(f => f.busy)) return aviso("Aguarde as fotos terminarem");
+    const dups = checaDup();
+    if (dups.length && !confirm(`⚠ Possível duplicidade:\n${dups.map(dupTxt).join("\n")}\n\nSalvar mesmo assim?`)) return;
     const btn = $("#fsalvar", s); btn.disabled = true; btn.textContent = "Salvando…";
     const rec = r || { id: uid(), criado: { por: EU.id, em: Date.now() }, hist: [] };
     T.os = os; T.dia = $("#fdia", s).value || isoDia();
@@ -1913,7 +1959,7 @@ function rotaEquipe(box) {
     <div class="calc" style="margin-top:0"><div><b>${t.n}</b><span>OS</span></div><div><b>${nf(t.massa, 1)}</b><span>t CBUQ</span></div><div><b>${Math.ceil(t.massa / CARGA) || 0}</b><span>carga(s) ${CARGA} t</span></div></div>
     ${cr.length ? `<div class="small muted" style="margin:6px 0">Término previsto ${cr[cr.length - 1].fim} (12 min + 4 min/m² por OS, deslocamento 5/15 min, almoço 1 h)</div>` : ""}
     <div id="map" style="height:300px;margin:8px 0"></div>
-    ${cr.map((x, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:var(--asfalto);color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${x.r.id}"><b>OS ${esc(x.r.os)}</b> · ${esc(endTxt(x.r.tri.end, 1))}<br><span class="small muted">${TIPOS[tipoDe(x.r.tri)].ic} ${esc(x.r.tri.end?.bairro || "")} · <span class="mono">${nf(x.r._c.area)} m² · ${nf(x.r._c.massa)} t</span> · ${x.ini}–${x.fim} · carga ${x.carga}${x.r.tri.lat == null ? " · <b style='color:var(--bad)'>sem coordenada</b>" : ""}</span></span>${x.r.tri.lat != null ? `<a class="navb" href="${navUrl(x.r.tri.lat, x.r.tri.lng)}">🧭</a>` : ""}<button class="btn sm r" data-rtira="${x.r.id}" style="flex:none">✕</button></div>`).join("") || '<div class="muted small">Nenhuma OS na rota. Adicione abaixo as que faltam fazer.</div>'}
+    ${cr.map((x, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:var(--asfalto);color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${x.r.id}"><b>OS ${esc(x.r.os)}</b> · ${esc(endTxt(x.r.tri.end, 1))}<br><span class="small muted">${TIPOS[tipoDe(x.r.tri)].ic} ${esc(x.r.tri.end?.bairro || "")} · <span class="mono">${nf(x.r._c.area)} m² · ${nf(x.r._c.massa)} t</span> · ${x.ini}–${x.fim} · carga ${x.carga}${x.r.tri.lat == null ? " · <b style='color:var(--bad)'>sem coordenada</b>" : ""}${duplicatas(x.r).length ? `<br><b style="color:var(--bad)">⚠ ${esc(dupTxt(duplicatas(x.r)[0]))}</b>` : ""}</span></span>${x.r.tri.lat != null ? `<a class="navb" href="${navUrl(x.r.tri.lat, x.r.tri.lng)}">🧭</a>` : ""}<button class="btn sm r" data-rtira="${x.r.id}" style="flex:none">✕</button></div>`).join("") || '<div class="muted small">Nenhuma OS na rota. Adicione abaixo as que faltam fazer.</div>'}
     ${seq.length ? `<div class="row" style="margin-top:10px"><button class="btn" id="rgm">🧭 Abrir no Google Maps</button><button class="btn" id="rzap">💬 Enviar rota</button></div>
     ${pode("programar") ? `<button class="btn bl w" style="margin-top:8px" id="rprog">✅ Programar estas ${seq.length} OS para a equipe ${esc(ROTA.equipe || "?")}</button>` : ""}` : ""}
   </div>
@@ -1921,7 +1967,7 @@ function rotaEquipe(box) {
     <div class="chips">${[["asfalto", "🛣️ Asfalto"], ["calcada", "🚶 Calçada"], ["paralelo", "🧱 Paralelo"], ["todos", "Todos"]].map(([k, n]) => `<button class="chip ${ROTA.tipo === k ? "on" : ""}" data-rtp="${k}">${n}</button>`).join("")}</div>
     <input class="search" id="rq" placeholder="Filtrar por bairro, rua, OS…">
     <div id="rpend"></div></div>`;
-  const desenhaPend = q => { $("#rpend", box).innerHTML = pend.filter(r => !q || [r.os, r.tri.end?.rua, r.tri.end?.bairro].join(" ").toLowerCase().includes(q)).sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "")).map(r => `<div class="achado" style="align-items:center"><span style="flex:1"><b>OS ${esc(r.os)}</b> · ${TIPOS[tipoDe(r.tri)].ic} ${esc(r.tri.end?.bairro || "?")} · <span style="color:${vidaCor(r)}">⏳ ${duracao(vida(r).ms)}</span> · <span class="mono">${nf(r._c.massa)} t</span>${r._st === "programada" ? ` · <span class="tag programada">eq. ${esc(r.prog.equipe)} ${brDia(r.prog.data).slice(0, 5)}</span>` : ""}<br><span class="small muted">${esc(endTxt(r.tri.end, 1))}</span></span><button class="btn sm y" data-radd="${r.id}" style="flex:none">+ Rota</button></div>`).join("") || '<div class="muted small">Nada pendente.</div>'; };
+  const desenhaPend = q => { $("#rpend", box).innerHTML = pend.filter(r => !q || [r.os, r.tri.end?.rua, r.tri.end?.bairro].join(" ").toLowerCase().includes(q)).sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "")).map(r => `<div class="achado" style="align-items:center"><span style="flex:1"><b>OS ${esc(r.os)}</b> · ${TIPOS[tipoDe(r.tri)].ic} ${esc(r.tri.end?.bairro || "?")} · <span style="color:${vidaCor(r)}">⏳ ${duracao(vida(r).ms)}</span> · <span class="mono">${nf(r._c.massa)} t</span>${duplicatas(r).length ? ` · <span class="tag dupt">⚠ ${duplicatas(r).some(d => d.r._st === "executada") ? "Já feita?" : "Duplicidade"}</span>` : ""}${r._st === "programada" ? ` · <span class="tag programada">eq. ${esc(r.prog.equipe)} ${brDia(r.prog.data).slice(0, 5)}</span>` : ""}<br><span class="small muted">${esc(endTxt(r.tri.end, 1))}</span></span><button class="btn sm y" data-radd="${r.id}" style="flex:none">+ Rota</button></div>`).join("") || '<div class="muted small">Nada pendente.</div>'; };
   desenhaPend("");
   $("#rq", box).oninput = e => desenhaPend(e.target.value.toLowerCase());
   const eqIn = $("#req", box); let tm; eqIn.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { ROTA.equipe = eqIn.value.trim(); ROTA.ids = null; render(); }, 600); };
@@ -2073,7 +2119,7 @@ async function abrirRel() {
   let corpo = porTipo.length > 1 ? `<table class="lst"><tr><th>Pavimentação</th><th>OS</th><th>m²</th><th>t CBUQ</th></tr>${porTipo.map(([v, x]) => `<tr><td>${v.n}</td><td>${x.n}</td><td>${nf(x.area)}</td><td>${x.massa ? nf(x.massa) : "—"}</td></tr>`).join("")}</table>` : "";
   if (REL.tipo === "rds") {
     corpo += d.lista.map((r, i) => secaoRDS(r, i + 1)).join("") || "<p>Nenhuma triagem neste dia.</p>";
-    const pend = d.lista.flatMap(r => agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`));
+    const pend = d.lista.flatMap(r => duplicatas(r).map(x => `OS ${r.os}: possível duplicidade — ${dupTxt(x)}`).concat(agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`)));
     corpo += `<div class="sec"><h2>Pendências e alertas</h2>${pend.length ? "<ul style='margin:0;padding-left:18px'>" + pend.map(p => `<li>${esc(p)}</li>`).join("") + "</ul>" : "Sem pendências."}</div>`;
   } else {
     const porSt = ["triada", "programada", "executada"].map(s => [s, totais(d.lista.filter(r => r._st === s))]);
@@ -2189,7 +2235,7 @@ async function gerarDocx() {
       if (ims) body += `<w:p><w:pPr><w:spacing w:before="80"/></w:pPr>${ims}</w:p>`;
       if (lk) body += wLink(lk, "🧭 Navegar até a OS no Google Maps");
     }
-    const pend = d.lista.flatMap(r => agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`));
+    const pend = d.lista.flatMap(r => duplicatas(r).map(x => `OS ${r.os}: possível duplicidade — ${dupTxt(x)}`).concat(agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`)));
     body += wP("Pendências e alertas", { b: 1, sz: 12, antes: 240 });
     body += (pend.length ? pend : ["Sem pendências."]).map(p => wP("• " + p, { sz: 10 })).join("");
   } else {
