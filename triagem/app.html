@@ -755,6 +755,9 @@ textarea.in{min-height:70px;resize:vertical}
 .maplink{display:block;position:relative;text-decoration:none}.maplink span{position:absolute;left:8px;bottom:8px;background:rgba(31,42,29,.88);color:#fff;font-size:12.5px;font-weight:700;padding:5px 9px;border-radius:8px}
 .navb{flex:none;width:40px;height:40px;border-radius:10px;background:var(--prog-bg);display:grid;place-items:center;text-decoration:none;font-size:19px;align-self:center}
 .tp{font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--soft);color:var(--ink)}
+.emk{display:inline-flex;align-items:center;justify-content:center;width:1.55em;height:1.55em;border-radius:.42em;background:linear-gradient(135deg,#e0a526,#c98a12);color:#1f2a1d;font:800 .5em/1 var(--f);letter-spacing:-.04em;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);flex:none}
+.credit{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13px;padding:14px 0 4px;border-top:1px solid var(--line);margin-top:6px}.credit .emk{font-size:22px}.credit b{color:var(--ink)}
+.rds .rcred{margin:18px 0 0;padding-top:8px;border-top:1px solid #ccc;color:#5a6780;font-size:11px;display:flex;align-items:center;gap:8px}.rds .rcred .emk{font-size:16px}
 .minimap{width:100%;border-radius:12px;display:block;background:var(--soft);aspect-ratio:5/3;object-fit:cover}
 .alert{border-radius:11px;padding:9px 11px;font-size:13.5px;margin:6px 0;display:flex;gap:8px;align-items:flex-start}
 .alert.w{background:var(--warn-bg);color:#5d3c00}.alert.b{background:var(--bad-bg);color:#6b1d17}.alert.i{background:var(--prog-bg);color:#183c66}.alert.o{background:var(--exec-bg);color:#14472b}
@@ -846,7 +849,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 2;                       // versão da interface (sobe a cada publicação)
+const APP_V = 3;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -890,6 +893,7 @@ const distM = (a, b) => { const R = 6371000, r = x => x * Math.PI / 180; const d
 const navUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${(+lat).toFixed(6)},${(+lng).toFixed(6)}&travelmode=driving`;
 const gmaps = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${(+lat).toFixed(6)},${(+lng).toFixed(6)}`;
 const iniciais = n => String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+const CREDITO = `<footer class="credit"><span class="emk" aria-hidden="true">EM</span><span>Software desenvolvido por <b>Estevam Marques</b></span></footer>`;
 const ANDROID = typeof window.Android !== "undefined";
 
 /* ---------- IndexedDB ---------- */
@@ -1453,7 +1457,7 @@ function telaPainel(m) {
   <div class="card"><h2>📍 Falta fazer por bairro <span class="r">t de CBUQ</span></h2>
     ${bais.length ? bais.map(([b, v]) => `<div style="margin:6px 0" data-ir="lista" data-q="${esc(b)}"><div class="row small" style="justify-content:space-between"><span><b>${esc(b)}</b> · ${v.n} OS</span><span class="mono" style="flex:none">${nf(v.t)} t</span></div><div class="bar"><i style="width:${v.t / mb * 100}%;background:var(--amarelo)"></i></div></div>`).join("") : '<div class="muted small">Nenhuma OS pendente.</div>'}
   </div>
-  <div class="card"><h2>🕑 Últimas movimentações</h2>${ultimas()}</div>`;
+  <div class="card"><h2>🕑 Últimas movimentações</h2>${ultimas()}</div>${CREDITO}`;
 }
 function ultimas() {
   const ev = [];
@@ -2074,7 +2078,7 @@ async function abrirRel() {
       corpo += Object.entries(g).map(([k, l]) => { const x = totais(l); return `<h3 style="font-size:13px;margin:10px 0 4px">${esc(k)} — ${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t</h3>${tabelaOS(l)}`; }).join(""); }
     else corpo += tabelaOS(d.lista);
   }
-  el.innerHTML = `<div class="rds">${cab}${res}${corpo}<div class="rod">Gerado pelo Triagem OS em ${brHora(Date.now())} por ${esc(EU.nome)} · Desenvolvido por Estevam Marques</div></div>
+  el.innerHTML = `<div class="rds">${cab}${res}${corpo}<p class="rcred"><span class="emk" aria-hidden="true">EM</span> Triagem OS · Software desenvolvido por Estevam Marques · gerado em ${brHora(Date.now())} por ${esc(EU.nome)}</p></div>
     <div id="relbar"><button class="btn" id="rvolta">‹ Voltar</button><button class="btn y" id="rpdf" style="flex:2">🖨️ Salvar PDF</button><button class="btn" id="rdoc2">📄 Word</button></div>`;
   $("#rvolta").onclick = fecharRel; $("#rdoc2").onclick = gerarDocx;
   $("#rpdf").onclick = async () => { await Promise.all($$("#rel img").map(i => i.complete ? 0 : new Promise(ok => { i.onload = i.onerror = ok; }))); const nome = nomeArq("pdf").replace(".pdf", ""); if (ANDROID) window.Android.print(nome); else window.print(); };
@@ -2108,7 +2112,7 @@ function nomeArq(ext) {
 }
 function resumoTexto() {
   const d = dadosRel(); const t = totais(d.lista);
-  return `*${d.titulo}* — ${d.per}\n${t.n} OS · ${nf(t.area)} m² · ${nf(t.massa)} t (${Math.ceil(t.massa / CARGA) || 0} carga(s) de ${CARGA} t)\n\n` + d.lista.map((r, i) => `${i + 1}. OS ${r.os} — ${TIPOS[tipoDe(r.tri)].n} — ${endTxt(r.tri.end)} — ${nf(r._c.area)} m²${r._c.massa ? " · " + nf(r._c.massa) + " t" : ""} — ${ST_NOME[r._st]}${r._st === "programada" ? " eq. " + r.prog.equipe : ""} — ⏳ ${vidaTxt(r)}${r.tri.lat != null ? "\n   🧭 " + navUrl(r.tri.lat, r.tri.lng) : ""}`).join("\n");
+  return `*${d.titulo}* — ${d.per}\n_Triagem OS · Software desenvolvido por Estevam Marques_\n${t.n} OS · ${nf(t.area)} m² · ${nf(t.massa)} t (${Math.ceil(t.massa / CARGA) || 0} carga(s) de ${CARGA} t)\n\n` + d.lista.map((r, i) => `${i + 1}. OS ${r.os} — ${TIPOS[tipoDe(r.tri)].n} — ${endTxt(r.tri.end)} — ${nf(r._c.area)} m²${r._c.massa ? " · " + nf(r._c.massa) + " t" : ""} — ${ST_NOME[r._st]}${r._st === "programada" ? " eq. " + r.prog.equipe : ""} — ⏳ ${vidaTxt(r)}${r.tri.lat != null ? "\n   🧭 " + navUrl(r.tri.lat, r.tri.lng) : ""}`).join("\n");
 }
 async function baixar(nome, blob, mime) {
   if (ANDROID && window.Android.saveFile) { const r = window.Android.saveFile(nome, await blobB64(blob), mime, true); aviso(r === "ok" ? `💾 ${esc(nome)} salvo em Downloads/TriagemOS` : esc(r), 5000); return; }
@@ -2188,7 +2192,7 @@ async function gerarDocx() {
     body += wP("", {});
     body += wTab([Object.assign(["OS", "Endereço", "Bairro", "Tipo", "m²", "t", "Situação", "Equipe", "Vida útil"], { cab: 1 }), ...d.lista.map(r => [r.os, endTxt(r.tri.end, 1), r.tri.end?.bairro || "", TIPOS[tipoDe(r.tri)].n, nf(r._c.area), r._c.massa ? nf(r._c.massa) : "—", ST_NOME[r._st], r.exec?.equipe || r.prog?.equipe || "", duracao(vida(r).ms)])], [850, 2300, 1200, 850, 700, 600, 1000, 700, 950]);
   }
-  body += wP(`Gerado pelo Triagem OS em ${brHora(Date.now())} por ${EU.nome} · Desenvolvido por Estevam Marques`, { sz: 8, cor: "777777", antes: 240 });
+  body += wP(`Triagem OS · Software desenvolvido por Estevam Marques · gerado em ${brHora(Date.now())} por ${EU.nome}`, { sz: 8, cor: "777777", antes: 240 });
   const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="450" w:footer="450" w:gutter="0"/></w:sectPr></w:body></w:document>`;
   const files = [
     { n: "[Content_Types].xml", d: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>` },
@@ -2208,7 +2212,7 @@ function telaPerfil(primeira) {
   m.innerHTML = `<div class="hero"><div style="font-size:13px;opacity:.8">TRIAGEM OS · PAVIMENTAÇÃO ARACAJU</div><h2>${primeira ? "Quem vai usar este celular?" : "Trocar perfil"}</h2><div style="font-size:13.5px;opacity:.85">Cada perfil vê tudo em tempo real; o que pode fazer muda conforme a função.</div></div>
     ${PERFIS.map(p => `<div class="perfil ${esc_ === p.id ? "on" : ""}" data-pf="${p.id}"><div class="avatar">${iniciais(nomePerfil(p.id))}</div><div style="flex:1"><b>${esc(nomePerfil(p.id))}</b><div class="pd">${esc(p.papel)}</div><div class="pd">${[p.pode.triar && "triagem", p.pode.programar && "programação/rota", p.pode.baixa && "baixa", p.pode.conferir && "conferência", "relatórios"].filter(Boolean).join(" · ")}</div></div></div>`).join("")}
     <div id="pfnome"></div>
-    <button class="btn y w" id="pfok" style="margin-top:8px" ${esc_ ? "" : "disabled"}>Entrar</button>`;
+    <button class="btn y w" id="pfok" style="margin-top:8px" ${esc_ ? "" : "disabled"}>Entrar</button>${CREDITO}`;
   m.onclick = e => {
     const c = e.target.closest("[data-pf]"); if (!c) return; esc_ = c.dataset.pf;
     $$("[data-pf]", m).forEach(x => x.classList.toggle("on", x === c)); $("#pfok").disabled = false;
@@ -2232,7 +2236,7 @@ function telaAjustes(m) {
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
-    <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>`;
+    <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
   $("#ajsync").onclick = () => { SYNC.etag = null; sincronizar(true).then(render); };
   $("#ajupd").onclick = () => checarAtualizacao(true);
