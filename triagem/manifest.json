@@ -1,6 +1,6 @@
 {
  "app": {
-  "v": 1,
+  "v": 2,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html"
  },
  "apk": {
@@ -8,6 +8,6 @@
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Versão inicial",
+ "nota": "Pavimentação (asfalto/calçada/paralelo), vida útil da OS e navegação no Google Maps",
  "data": "31/10/2026"
 }
