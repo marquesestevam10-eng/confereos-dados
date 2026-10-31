@@ -851,7 +851,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 5;                       // versão da interface (sobe a cada publicação)
+const APP_V = 6;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -1418,6 +1418,7 @@ function lista(f = {}) {
   if (f.st === "ativas") l = l.filter(r => r._st === "triada" || r._st === "programada");
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
   const hoje = isoDia();
+  if (f.st === "maiores") return [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && r._c.area > 0 && (!f.tipo || f.tipo === "todos" || tipoDe(r.tri) === f.tipo)).sort((a, b) => b._c.area - a._c.area);
   if (f.st === "dup") l = [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length);
   if (f.tipo && f.tipo !== "todos") l = l.filter(r => tipoDe(r.tri) === f.tipo);
   if (f.per === "hoje") l = l.filter(r => r.tri.dia === hoje || r.exec?.data === hoje || r.prog?.data === hoje);
@@ -1477,6 +1478,7 @@ function telaPainel(m) {
     ${pode("triar") ? `<div class="row" style="margin-top:12px"><button class="btn y" data-nav="triar">📷 Nova triagem</button><button class="btn" data-act="voz-rapida">🎤 Por áudio</button></div>` : ""}
   </div>
   ${(() => { const dd = all.filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length); const fe = dd.filter(r => duplicatas(r).some(d => d.r._st === "executada")); return dd.length ? `<div class="card" data-ir="lista" data-st="dup" style="cursor:pointer;border-left:5px solid var(--bad)"><h2>⚠️ Possível duplicidade <span class="r">${dd.length} OS ›</span></h2><div class="small">${fe.length ? `<b style="color:var(--bad)">${fe.length} OS em local que já foi executado.</b> ` : ""}Mesmo endereço/número ou mesmo ponto de outra OS. Confira antes de programar, pra não dar viagem perdida.</div></div>` : ""; })()}
+  ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<button class="btn y w" style="margin-top:10px" data-act="sobra">♻️ Sobrou massa? Achar áreas perto</button></div>` : ""; })()}
   <div class="card"><h2>🧱 Por pavimentação <span class="r">falta fazer · total</span></h2>
     ${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), tt = totais(l); return `<div class="achado" data-ir="lista" data-tp="${k}" style="align-items:center"><span style="font-size:22px">${v.ic}</span><span style="flex:1"><b>${v.n}</b><br><span class="small muted mono">falta ${p.n} OS · ${nf(p.area)} m²${k === "asfalto" ? ` · ${nf(p.massa)} t` : ""}</span></span><span class="mono small" style="text-align:right">${tt.n} OS<br>${nf(tt.area)} m²</span></div>`; }).join("")}
   </div>
@@ -1502,7 +1504,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   m.innerHTML = `
   <input class="search" id="q" placeholder="🔎 Buscar OS, rua, bairro, equipe…" value="${esc(FILTRO.q)}">
@@ -1654,6 +1656,7 @@ document.addEventListener("click", async e => {
   else if (a === "prog-sel") { if (!SEL.size) return aviso("Marque as OS"); modalProgramar([...SEL]); }
   else if (a === "baixa-sel") { if (!SEL.size) return aviso("Marque as OS"); modalBaixa([...SEL]); }
   else if (a === "voz-rapida") abrirForm(null, { voz: true });
+  else if (a === "sobra") { ROTA.modo = "sobra"; ir("rota"); }
 });
 function compartilhar(t) { if (ANDROID) window.Android.share(t); else if (navigator.share) navigator.share({ text: t }).catch(() => { }); else { navigator.clipboard?.writeText(t); aviso("Texto copiado"); } }
 
@@ -1884,10 +1887,10 @@ const COR = { triada: "#f2b705", programada: "#2a62a6", executada: "#23764a", ca
 function telaRota(m) {
   ROTA.data = ROTA.data || somaDias(isoDia(), 0);
   m.innerHTML = `
-  <div class="seg" style="margin-bottom:10px"><button data-modo="rota" class="${ROTA.modo === "rota" ? "on" : ""}">🚚 Rota da equipe</button><button data-modo="mapa" class="${ROTA.modo === "mapa" ? "on" : ""}">🗺️ Mapa geral</button></div>
+  <div class="seg" style="margin-bottom:10px"><button data-modo="rota" class="${ROTA.modo === "rota" ? "on" : ""}">🚚 Rota</button><button data-modo="sobra" class="${ROTA.modo === "sobra" ? "on" : ""}">♻️ Sobra de massa</button><button data-modo="mapa" class="${ROTA.modo === "mapa" ? "on" : ""}">🗺️ Mapa</button></div>
   <div id="rbox"></div>`;
   $$("[data-modo]", m).forEach(b => b.onclick = () => { ROTA.modo = b.dataset.modo; render(); });
-  ROTA.modo === "mapa" ? mapaGeral($("#rbox", m)) : rotaEquipe($("#rbox", m));
+  ROTA.modo === "mapa" ? mapaGeral($("#rbox", m)) : ROTA.modo === "sobra" ? sobraMassa($("#rbox", m)) : rotaEquipe($("#rbox", m));
 }
 
 function novoMapa(el) {
@@ -2003,6 +2006,93 @@ function rotaEquipe(box) {
     if (pts.length > 1) L.polyline(pts, { color: "#1f2a1d", weight: 3, dashArray: "6 6" }).addTo(mp);
     if (pts.length) mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
   }, 60);
+}
+
+/* ================= Rastreador de áreas maiores / sobra de massa =================
+   Ex.: 15h, a equipe ainda tem 4 t no caminhão. Acha OS de asfalto pendentes perto
+   (áreas maiores primeiro) que caibam na massa e no tempo que resta. Sem desperdício. */
+let SOBRA = { t: "", ref: null, refTxt: "", fim: "17:00", equipe: "" };
+const pendAsfalto = () => [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && tipoDe(r.tri) === "asfalto" && r.tri.lat != null && r._c.massa > 0 && !duplicatas(r).some(d => d.r._st === "executada"));
+const minViagem = km => Math.round(4 + km * 3);              // trânsito urbano ~20 km/h + estacionar
+const minServico = r => 12 + 4 * r._c.area;                  // regra do RDS
+function planoSobra(ref, ton, minutos) {
+  let cur = ref, resta = ton, tempo = minutos; const escolhidas = []; const cand = pendAsfalto();
+  while (resta > 0.12) {
+    let best = null, bs = -1;
+    for (const r of cand) {
+      if (escolhidas.includes(r) || r._c.massa > resta * 1.05) continue;
+      const km = distM(cur, [r.tri.lat, r.tri.lng]) / 1000, min = minViagem(km) + minServico(r);
+      if (min > tempo) continue;
+      const sc = r._c.massa / min;                            // toneladas aproveitadas por minuto
+      if (sc > bs) { bs = sc; best = { r, km, min }; }
+    }
+    if (!best) break;
+    escolhidas.push(best.r); best.r._plano = best; resta -= best.r._c.massa; tempo -= best.min; cur = [best.r.tri.lat, best.r.tri.lng];
+  }
+  return { lista: escolhidas, usado: ton - Math.max(0, resta), resta: Math.max(0, resta), tempo: minutos - tempo };
+}
+function minutosAte(hhmm) { const [h, m] = hhmm.split(":").map(Number); const d = new Date(); return Math.max(0, h * 60 + m - (d.getHours() * 60 + d.getMinutes())); }
+
+function sobraMassa(box) {
+  const ton = num(SOBRA.t), mins = minutosAte(SOBRA.fim);
+  const cand = pendAsfalto();
+  const ref = SOBRA.ref;
+  const maiores = cand.map(r => ({ r, km: ref ? distM(ref, [r.tri.lat, r.tri.lng]) / 1000 : null })).sort((a, b) => ref ? (b.r._c.massa / (1 + b.km)) - (a.r._c.massa / (1 + a.km)) : b.r._c.massa - a.r._c.massa).slice(0, 12);
+  const pl = ref && ton > 0 ? planoSobra(ref, ton, mins) : null;
+  box.innerHTML = `
+  <div class="card">
+    <h2>♻️ Sobrou massa no caminhão?</h2>
+    <div class="small muted" style="margin-top:-4px">Ache áreas maiores perto da equipe e não desperdice CBUQ.</div>
+    <div class="grid2"><div><label class="f">Toneladas que sobraram</label><input class="in mono" id="st" inputmode="decimal" placeholder="Ex.: 4" value="${esc(SOBRA.t)}"></div>
+    <div><label class="f">Fim do serviço</label><input class="in" type="time" id="sfim" value="${SOBRA.fim}"></div></div>
+    <label class="f">Onde a equipe está</label>
+    <div class="row"><button class="btn ${SOBRA.refTxt === "gps" ? "p" : ""}" id="sgps">📍 Minha localização</button><button class="btn ${SOBRA.refTxt.startsWith("eq") ? "p" : ""}" id="seq">🚚 Última OS da rota</button></div>
+    <div id="seqbox"></div>
+    ${ref ? `<div class="small muted" style="margin-top:6px">Ponto: ${SOBRA.refTxt === "gps" ? "GPS agora" : "última OS da " + esc(SOBRA.refTxt)} · ${mins ? `faltam ${duracao(mins * 6e4)} até ${SOBRA.fim}` : "<b style='color:var(--bad)'>já passou do horário</b>"}</div>` : ""}
+  </div>
+  ${pl ? `<div class="card"><h2>✅ Sugestão para ${nf(ton)} t <span class="r">${pl.lista.length} OS</span></h2>
+    <div class="calc" style="margin-top:0"><div><b>${nf(pl.usado)}</b><span>t aproveitadas</span></div><div><b>${nf(pl.resta)}</b><span>t sobrando</span></div><div><b>${duracao(pl.tempo * 6e4)}</b><span>tempo</span></div></div>
+    <div class="bar" style="height:10px;margin-top:8px"><i style="width:${Math.min(100, pl.usado / ton * 100)}%;background:var(--amarelo)"></i></div>
+    ${pl.lista.length ? `<div id="map" style="height:260px;margin:10px 0"></div>` + pl.lista.map((r, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:var(--asfalto);color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${r.id}"><b>OS ${esc(r.os)}</b> · ${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}<br><span class="small muted mono">${nf(r._c.area)} m² · <b>${nf(r._c.massa)} t</b> · ${nf(r._plano.km, 1)} km · ~${Math.round(r._plano.min)} min</span>${r._st === "programada" ? `<br><span class="tag programada">eq. ${esc(r.prog.equipe)} ${brDia(r.prog.data).slice(0, 5)}</span>` : ""}</span><a class="navb" href="${navUrl(r.tri.lat, r.tri.lng)}">🧭</a></div>`).join("")
+      : `<div class="alert w">Nenhuma OS de asfalto pendente cabe em ${nf(ton)} t no tempo que resta. Veja as áreas maiores abaixo.</div>`}
+    ${(() => { const fora = pendAsfalto().filter(r => !pl.lista.includes(r) && r._c.massa <= ton * 1.05 && r._c.massa > 0.5).map(r => ({ r, min: minViagem(distM(ref, [r.tri.lat, r.tri.lng]) / 1000) + minServico(r) })).filter(x => x.min > mins - pl.tempo).sort((a, b) => b.r._c.massa - a.r._c.massa).slice(0, 2);
+      return fora.map(x => `<div class="alert i small">⏱ OS ${esc(x.r.os)} (${nf(x.r._c.massa)} t) ficou de fora: precisa de ~${duracao(x.min * 6e4)}. Se der pra estender o horário, ajuste o “Fim do serviço”.</div>`).join(""); })()}
+    ${pl.lista.length ? `<div class="row" style="margin-top:10px"><button class="btn" id="sgm">🧭 Rota no Google Maps</button><button class="btn" id="szap">💬 Mandar pra equipe</button></div>
+    ${pode("programar") ? `<label class="f">Equipe</label>${campoEquipe("seqp", SOBRA.equipe)}<button class="btn bl w" style="margin-top:8px" id="sprog">✅ Programar para hoje</button>` : ""}` : ""}
+  </div>` : `<div class="alert i">Informe as toneladas que sobraram e onde a equipe está para o app montar o aproveitamento.</div>`}
+  <div class="card"><h2>📏 Áreas maiores pendentes <span class="r">${ref ? "perto primeiro" : "maior primeiro"}</span></h2>
+    ${maiores.map(({ r, km }) => `<div class="achado" style="align-items:center"><span style="flex:1" data-os="${r.id}"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}${km != null ? ` · ${nf(km, 1)} km` : ""} · ⏳ ${duracao(vida(r).ms)}${r._c.massa > CARGA ? " · <b>mais de uma carga</b>" : ""}</span></span><a class="navb" href="${navUrl(r.tri.lat, r.tri.lng)}">🧭</a></div>`).join("") || '<div class="muted small">Nenhuma OS de asfalto pendente com coordenada.</div>'}
+  </div>`;
+  let tm; $("#st", box).oninput = e => { clearTimeout(tm); tm = setTimeout(() => { SOBRA.t = e.target.value; render(); }, 700); };
+  $("#sfim", box).onchange = e => { SOBRA.fim = e.target.value; render(); };
+  $("#sgps", box).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível"); SOBRA.ref = [g.lat, g.lng]; SOBRA.refTxt = "gps"; render(); };
+  $("#seq", box).onclick = () => {
+    const eqs = equipesConhecidas();
+    $("#seqbox", box).innerHTML = `<div class="chips" style="margin-top:8px">${eqs.map(e => `<button class="chip" data-seq="${esc(e)}">Equipe ${esc(e)}</button>`).join("")}</div>`;
+    $$("[data-seq]", box).forEach(b => b.onclick = () => {
+      const e = b.dataset.seq, hoje = isoDia();
+      const l = [...OS.values()].filter(r => r.tri.lat != null && ((ativa(r.exec) && r.exec.data === hoje && (r.exec.equipe || r.prog?.equipe) === e) || (r._st === "programada" && r.prog.data === hoje && r.prog.equipe === e)));
+      if (!l.length) return aviso(`Equipe ${esc(e)} sem OS hoje com coordenada. Use “Minha localização”.`);
+      const ult = l.sort((a, b) => (ativa(b.exec) ? b.exec.em : 0) - (ativa(a.exec) ? a.exec.em : 0) || (b.prog?.ordem || 0) - (a.prog?.ordem || 0))[0];
+      SOBRA.ref = [ult.tri.lat, ult.tri.lng]; SOBRA.refTxt = "equipe " + e; SOBRA.equipe = e; render();
+    });
+  };
+  if (pl && pl.lista.length) {
+    $("#sgm", box).onclick = () => { const p = r => `${r.tri.lat},${r.tri.lng}`; const pts = pl.lista.slice(0, 10); location.href = `https://www.google.com/maps/dir/?api=1&origin=${ref.join(",")}&destination=${p(pts[pts.length - 1])}${pts.length > 1 ? "&waypoints=" + encodeURIComponent(pts.slice(0, -1).map(p).join("|")) : ""}&travelmode=driving`; };
+    $("#szap", box).onclick = () => compartilhar(`♻️ Aproveitamento de massa — sobra de ${nf(ton)} t\nUsa ${nf(pl.usado)} t em ${pl.lista.length} OS:\n\n` + pl.lista.map((r, i) => `${i + 1}. OS ${r.os} — ${endTxt(r.tri.end)} — ${nf(r._c.area)} m² · ${nf(r._c.massa)} t\n   🧭 ${navUrl(r.tri.lat, r.tri.lng)}`).join("\n"));
+    const pb = $("#sprog", box); if (pb) pb.onclick = async () => {
+      const eq = $("#seqp", box).value.trim(); if (!eq) return aviso("Digite o número da equipe"); await lembrarEquipe(eq);
+      for (let i = 0; i < pl.lista.length; i++) { const r = pl.lista[i]; r.prog = { equipe: eq, data: isoDia(), ordem: 100 + i, obs: "aproveitamento de sobra de massa", por: EU.id, em: Date.now(), upd: Date.now() }; await salvarOS(r, "programada", `sobra de massa · equipe ${eq}`); }
+      aviso(`✅ ${pl.lista.length} OS programadas para a equipe ${esc(eq)} hoje`); render();
+    };
+    const mp = novoMapa($("#map", box));
+    if (mp) setTimeout(() => {
+      mp.invalidateSize(); const pts = [ref];
+      L.circleMarker(ref, { radius: 9, color: "#fff", fillColor: "#1f2a1d", fillOpacity: 1, weight: 3 }).addTo(mp).bindTooltip("Equipe");
+      pl.lista.forEach((r, i) => { L.marker([r.tri.lat, r.tri.lng], { icon: pinIcon("#f2b705", (i + 1) + " · " + nf(r._c.massa, 1) + " t") }).addTo(mp).on("click", () => abrirOS(r.id)); pts.push([r.tri.lat, r.tri.lng]); });
+      L.polyline(pts, { color: "#1f2a1d", weight: 3, dashArray: "6 6" }).addTo(mp); mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
+    }, 60);
+  }
 }
 
 /* ================= Agentes (conferência automática) =================
