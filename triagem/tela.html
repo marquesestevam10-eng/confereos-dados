@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 25;                       // versão da interface (sobe a cada publicação)
+const APP_V = 26;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13317,8 +13317,9 @@ const hora = ts => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(
 const diasEntre = (a, b) => Math.floor((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
 const somaDias = (iso, n) => { const d = new Date(iso + "T12:00"); d.setDate(d.getDate() + n); return isoDia(d); };
 const distM = (a, b) => { const R = 6371000, r = x => x * Math.PI / 180; const dLa = r(b[0] - a[0]), dLo = r(b[1] - a[1]); const h = Math.sin(dLa / 2) ** 2 + Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
-/* servidores de mapa: CARTO (aceita apps) e, se falhar, OpenStreetMap */
-const TILES = ["https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png", "https://tile.openstreetmap.org/{z}/{x}/{y}.png"];
+/* servidores de mapa: Esri (sem chave) e, se falhar, OpenStreetMap. A CARTO passou a exigir chave em 11/2026 (tiles "API KEY REQUIRED"). */
+const TILES = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", "https://tile.openstreetmap.org/{z}/{x}/{y}.png"];
+const TILES_ATRIB = "© Esri · © OpenStreetMap";
 const tileUrl = (i, z, x, y) => TILES[i].replace("{z}", z).replace("{x}", x).replace("{y}", y);
 const navUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${(+lat).toFixed(6)},${(+lng).toFixed(6)}&travelmode=driving`;
 const gmaps = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${(+lat).toFixed(6)},${(+lng).toFixed(6)}`;
@@ -13746,14 +13747,24 @@ async function enderecoDe(lat, lng) {
 async function coordDeEndereco(q) {
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(q + (/sergipe|\bse\b/i.test(q) ? "" : ", Sergipe"))}`);
-    if (!r.ok) return null; const j = await r.json(); if (!j.length) return null;
-    return { lat: +(+j[0].lat).toFixed(6), lng: +(+j[0].lon).toFixed(6), nome: j[0].display_name.split(",").slice(0, 3).join(",") };
+    if (r.ok) { const j = await r.json(); if (j.length) return { lat: +(+j[0].lat).toFixed(6), lng: +(+j[0].lon).toFixed(6), nome: j[0].display_name.split(",").slice(0, 3).join(",") }; }
+  } catch (e) { }
+  return coordEsri(q);
+}
+/* reserva: localizador da Esri (sem chave), aceita só resultado bom e dentro de Sergipe */
+async function coordEsri(q) {
+  try {
+    const r = await fetch("https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&countryCode=BRA&outFields=Match_addr&singleLine=" + encodeURIComponent(q + (/sergipe|\bse\b/i.test(q) ? "" : ", Sergipe")));
+    if (!r.ok) return null; const c = ((await r.json()).candidates || [])[0];
+    if (!c || c.score < 80) return null; const lat = +c.location.y, lng = +c.location.x;
+    if (lat > -9.4 || lat < -11.6 || lng > -36.3 || lng < -38.3) return null;
+    return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), nome: String(c.address || "").split(",").slice(0, 3).join(",") };
   } catch (e) { return null; }
 }
 
 /* mini-mapa real (OpenStreetMap) desenhado em imagem — volta esquemático se estiver sem internet */
 async function miniMapa(lat, lng, rotulo, w = 600, h = 360, z = 17) {
-  const k = `mapa:${lat},${lng},${rotulo},${w}x${h}`;
+  const k = `mapa2:${lat},${lng},${rotulo},${w}x${h}`;
   const c = await kvGet(k); if (c) return c;
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const x = cv.getContext("2d");
   const n = 2 ** z, wx = (lng + 180) / 360 * n * 256, la = lat * Math.PI / 180, wy = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n * 256;
@@ -13784,7 +13795,7 @@ async function miniMapa(lat, lng, rotulo, w = 600, h = 360, z = 17) {
   x.beginPath(); x.moveTo(cx, cy); x.bezierCurveTo(cx - 16, cy - 20, cx - 14, cy - 42, cx, cy - 42); x.bezierCurveTo(cx + 14, cy - 42, cx + 16, cy - 20, cx, cy); x.fill(); x.stroke();
   x.fillStyle = "#fff"; x.beginPath(); x.arc(cx, cy - 29, 5.5, 0, 7); x.fill();
   if (rotulo) { x.font = "bold 15px Arial"; const tw = x.measureText(rotulo).width + 14; x.fillStyle = "#1f2a1d"; x.fillRect(cx - tw / 2, cy - 72, tw, 22); x.fillStyle = "#f2b705"; x.fillText(rotulo, cx - tw / 2 + 7, cy - 56); }
-  x.fillStyle = "rgba(255,255,255,.85)"; x.fillRect(w - 214, h - 18, 214, 18); x.fillStyle = "#333"; x.font = "11px Arial"; x.fillText("© OpenStreetMap · CARTO · " + lat.toFixed(5) + ", " + lng.toFixed(5), w - 210, h - 5);
+  x.font = "11px Arial"; const at = TILES_ATRIB + " · " + lat.toFixed(5) + ", " + lng.toFixed(5), aw = x.measureText(at).width + 10; x.fillStyle = "rgba(255,255,255,.85)"; x.fillRect(w - aw, h - 18, aw, 18); x.fillStyle = "#333"; x.fillText(at, w - aw + 5, h - 5);
   let u; try { u = cv.toDataURL("image/jpeg", 0.82); } catch (e) { return null; }
   if (ok) await kvSet(k, u);
   return u;
@@ -14017,7 +14028,7 @@ let _corrigindo = false;
 async function corrigirMapas(manual) {
   if (_corrigindo || !navigator.onLine) return;
   const l = [...OS.values()].filter(r => r._st !== "cancelada" && (r.tri.end?.rua || r.tri.end?.bairro) && (r.tri.lat == null || !pontoConfiavel(r)) && !r.tri.geoPeloEnd);
-  if (!l.length) { if (manual) aviso("✅ Todos os mapas já estão pelo endereço/foto certos"); return; }
+  if (!l.length) { if (manual) aviso("✅ Todos os mapas já estão pelo endereço/foto certos"); return { ok: 0, total: 0 }; }
   _corrigindo = true; let ok = 0;
   try {
     for (let i = 0; i < l.length; i++) {
@@ -14028,6 +14039,7 @@ async function corrigirMapas(manual) {
     }
   } finally { _corrigindo = false; }
   aviso(`✅ ${ok} mapa(s) ajustado(s) pelo endereço${l.length - ok ? ` · ${l.length - ok} sem endereço achado no mapa` : ""}`, 6000); render();
+  return { ok, total: l.length };
 }
 
 /* GPS escrito em XMP (alguns apps gravam só aí) */
@@ -14662,7 +14674,7 @@ function novoMapa(el) {
   if (_map) { try { _map.remove(); } catch (e) { } _map = null; }
   if (!window.L) { el.innerHTML = '<div class="empty">Mapa indisponível</div>'; return null; }
   _map = L.map(el, { zoomControl: true, attributionControl: true }).setView([-10.9472, -37.0731], 13);
-  const camada = L.tileLayer(TILES[0], { maxZoom: 19, attribution: "© OpenStreetMap · © CARTO" }).addTo(_map);
+  const camada = L.tileLayer(TILES[0], { maxZoom: 19, attribution: TILES_ATRIB }).addTo(_map);
   let erros = 0; camada.on("tileerror", () => { if (++erros === 3) camada.setUrl(TILES[1]); });
   return _map;
 }
@@ -14885,7 +14897,7 @@ const AGENTES = [
       if (T.lat == null) a.push({ n: 2, t: "Sem coordenada" });
       if (!T.end?.rua) a.push({ n: 2, t: "Rua não identificada — endereço a confirmar" });
       if (!T.end?.mun) a.push({ n: 1, t: "Município a confirmar" });
-      else if (!T.end?.bairro) a.push({ n: 1, t: "Bairro a confirmar" });
+      else if (!T.end?.bairro && !T.end?.num) a.push({ n: 1, t: "Bairro a confirmar" });
       if (T.end?.numFachada && T.end?.num && T.end.numFachada !== T.end.num) a.push({ n: 1, t: `Nº da fachada (${T.end.numFachada}) diferente do nº do endereço (${T.end.num})` });
       if (T.lat != null) { const lon = (T.fotos || []).filter(f => f.lat != null && distM([T.lat, T.lng], [f.lat, f.lng]) > 150); if (lon.length) a.push({ n: 1, t: `${lon.length} foto(s) a mais de 150 m do ponto` }); }
       return a; } },
@@ -15455,7 +15467,7 @@ async function autoMapas() {
   if (!EU || !(pode("triar") || pode("editarTodos"))) return;
   if (!(await kvGet("mapasCorrigidos1"))) setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
   /* 01/11/2026: endereços conferidos pelo carimbo no servidor → baixa e refaz os mapas pelo endereço certo */
-  else if (temServidor() && !(await kvGet("mapasCorrigidos2"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; await corrigirMapas(false); await kvSet("mapasCorrigidos2", 1); }, 4000);
+  else if (temServidor() && !(await kvGet("mapasCorrigidos3"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; const x = await corrigirMapas(false); if (x && x.ok === x.total) await kvSet("mapasCorrigidos3", 1); }, 4000);
 }
 /* ---------- início ---------- */
 (async () => {
