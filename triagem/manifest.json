@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 14,
+  "v": 15,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-14.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-15.html"
  },
  "apk": {
   "v": 6,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Nova triagem por tipo e atualização mais firme",
+ "nota": "Duplicidade corrigida (sem alarme falso)",
  "data": "01/11/2026"
 }

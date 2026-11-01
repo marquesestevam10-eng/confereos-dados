@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 14;                       // versão da interface (sobe a cada publicação)
+const APP_V = 15;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13398,13 +13398,24 @@ const vidaCor = r => { const v = vida(r); if (v.feita) return "var(--exec)"; con
 const semAc = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(rua|r|avenida|av|travessa|tv|trav|praca|pc|alameda|al|rodovia|rod)\b\.?/g, "").replace(/[^a-z0-9]/g, "");
 const chaveEnd = e => { const rua = semAc(e?.rua), n = String(e?.num || e?.numFachada || "").replace(/\D/g, ""); return rua && n ? rua + "|" + n + "|" + semAc(e?.mun) : null; };
 const DUP_M = 12;   // metros: mesmo ponto
+/* ponto confiável = coordenada que veio da foto/carimbo/digitada, ou GPS do celular tirado NO LOCAL.
+   GPS do celular de quem cadastrou depois, em casa, pela galeria (versões antigas) e o ponto "aproximado pelo bairro" NÃO contam. */
+function pontoConfiavel(r) {
+  const T = r.tri || r, o = T.origemCoord || "foto";
+  if (T.lat == null || o === "endereco") return false;
+  if (o === "gps") { const c = r.criado?.em || Date.now(), f = T.emFoto || c; return Math.abs(c - f) < 2 * 36e5; }
+  return true;
+}
 function duplicatas(r) {
-  const T = r.tri || r, k = chaveEnd(T.end), out = [];
+  const T = r.tri || r, k = chaveEnd(T.end), out = [], tp = tipoDe(T), pc = pontoConfiavel(r), nao = T.naoDup || [];
   for (const x of OS.values()) {
     if (x.id === r.id || x._st === "cancelada") continue;
+    if (tipoDe(x.tri) !== tp) continue;                                   // calçada x asfalto no mesmo endereço não é duplicidade
+    if (nao.includes(x.id) || (x.tri.naoDup || []).includes(r.id)) continue;  // alguém já conferiu: "não é duplicidade"
     let motivo = null;
-    if (k && chaveEnd(x.tri.end) === k) motivo = "mesmo endereço e número";
-    else if (T.lat != null && x.tri.lat != null) { const d = distM([T.lat, T.lng], [x.tri.lat, x.tri.lng]); if (d <= DUP_M) motivo = `mesmo ponto (${Math.round(d)} m)`; }
+    if (x.os === (r.os || T.os)) motivo = "mesmo número de OS";
+    else if (k && chaveEnd(x.tri.end) === k) motivo = "mesmo endereço e número";
+    else if (pc && pontoConfiavel(x)) { const d = distM([T.lat, T.lng], [x.tri.lat, x.tri.lng]); if (d <= DUP_M) motivo = `mesmo ponto (${Math.round(d)} m)`; }
     if (motivo) out.push({ r: x, motivo, mesmaOS: x.os === (r.os || T.os) });
   }
   const ordem = { executada: 0, programada: 1, triada: 2 };
@@ -13414,10 +13425,11 @@ function dupTxt(d) {
   const x = d.r; const st = x._st === "executada" ? `JÁ EXECUTADA em ${brDia(x.exec.data)}` : x._st === "programada" ? `programada p/ eq. ${x.prog.equipe} em ${brDia(x.prog.data)}` : `triada em ${brDia(x.tri.dia)}`;
   return `OS ${x.os} — ${d.motivo} — ${st}`;
 }
-function dupHTML(lista, curto) {
+function dupHTML(lista, curto, r) {
   if (!lista.length) return "";
   const grave = lista.some(d => d.r._st === "executada");
-  return `<div class="alert ${grave ? "b" : "w"} dup">⚠️ <span><b>Possível duplicidade${grave ? " — local já executado" : ""}</b>${curto ? "" : "<br>Confira antes de mandar a equipe, pra não dar viagem perdida."}${lista.map(d => `<br>• <a href="#" data-dupos="${d.r.id}">${esc(dupTxt(d))}</a>`).join("")}</span></div>`;
+  const podeMarcar = r && EU && EU.id !== "tela" && EU.id !== "gerente";
+  return `<div class="alert ${grave ? "b" : "w"} dup">⚠️ <span><b>Possível duplicidade${grave ? " — local já executado" : ""}</b>${curto ? "" : "<br>Confira antes de mandar a equipe, pra não dar viagem perdida."}${lista.map(d => `<br>• <a href="#" data-dupos="${d.r.id}">${esc(dupTxt(d))}</a>${podeMarcar ? ` <button class="btn sm" style="padding:3px 8px;margin:3px 0" data-naodup="${r.id}|${d.r.id}">✔ Não é</button>` : ""}`).join("")}</span></div>`;
 }
 function hist(r, acao, extra) { (r.hist = r.hist || []).push(Object.assign({ em: Date.now(), por: EU.id, acao }, extra || {})); }
 
@@ -14138,7 +14150,8 @@ async function abrirOS(id) {
     <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
     <div class="calc">${c.massa || SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
     <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Sem CBUQ"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
-    ${r._st !== "cancelada" ? dupHTML(duplicatas(r)) : ""}
+    ${r._st !== "cancelada" ? dupHTML(duplicatas(r), false, r) : ""}
+    ${T.lat != null && !pontoConfiavel(r) ? `<div class="alert w small">📍 ${T.origemCoord === "endereco" ? "Ponto aproximado pelo endereço escrito na foto." : "Esse ponto veio do GPS do celular na hora do cadastro, não da foto."} Pra corrigir: <b>Editar triagem</b> e pôr as fotos de novo, ou digitar a coordenada.</div>` : ""}
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
     <div class="card" style="margin-top:10px"><dl class="kv">
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
@@ -14175,6 +14188,12 @@ async function abrirOS(id) {
   for (const i of $$("img[data-full]", s)) fotoURL(i.dataset.full).then(u => { if (u) i.src = u; });
   if (T.lat != null) miniMapa(T.lat, T.lng, "OS " + r.os).then(u => { const i = $("#dmap", s); if (u && i) i.src = u; });
 }
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-naodup]"); if (!b) return; e.preventDefault(); e.stopPropagation();
+  const [i1, i2] = b.dataset.naodup.split("|"); const r1 = OS.get(i1), r2 = OS.get(i2); if (!r1 || !r2) return;
+  for (const [x, y] of [[r1, r2], [r2, r1]]) { x.tri.naoDup = [...new Set([...(x.tri.naoDup || []), y.id])]; x.tri.upd = Date.now(); await salvarOS(x, "editada", "não é duplicidade de OS " + y.os); }
+  aviso(`✔ OS ${esc(r1.os)} e ${esc(r2.os)}: marcado que não é duplicidade`); abrirOS(i1); render();
+}, true);
 document.addEventListener("click", e => { const a = e.target.closest("[data-dupos]"); if (a) { e.preventDefault(); e.stopPropagation(); abrirOS(a.dataset.dupos); } }, true);
 document.addEventListener("click", e => { const i = e.target.closest("img[data-full]"); if (!i || !i.src) return; const d = document.createElement("div"); d.className = "lightbox"; d.innerHTML = `<img src="${i.src}">`; d.onclick = () => d.remove(); document.body.appendChild(d); });
 
@@ -14379,8 +14398,8 @@ function abrirForm(r, op = {}) {
   }
   /* duplicidade: mesmo endereço/número ou mesmo ponto de outra OS */
   function checaDup() {
-    const tmp = { id: r ? r.id : "__novo", os: $("#fos", s).value.trim().toUpperCase(), tri: { end: { rua: $("#frua", s).value, num: $("#fnum", s).value, numFachada: $("#ffach", s).value, mun: $("#fmun", s).value }, lat: LOC ? LOC.lat : null, lng: LOC ? LOC.lng : null } };
-    const d = duplicatas(tmp).filter(x => !x.mesmaOS);
+    const tmp = { id: r ? r.id : "__novo", os: $("#fos", s).value.trim().toUpperCase(), criado: { em: Date.now() }, tri: { servico: $("#fserv", s).value, naoDup: T.naoDup, end: { rua: $("#frua", s).value, num: $("#fnum", s).value, numFachada: $("#ffach", s).value, mun: $("#fmun", s).value }, lat: LOC ? LOC.lat : null, lng: LOC ? LOC.lng : null, origemCoord: LOC ? LOC.origem : null, emFoto: LOC && LOC.origem === "gps" ? Date.now() : (emDasFotos() || {}).em } };
+    const d = duplicatas(tmp).filter(x => !x.mesmaOS);   // mesmo nº de OS já é avisado no campo da OS
     $("#fdup", s).innerHTML = dupHTML(d);
     return d;
   }
