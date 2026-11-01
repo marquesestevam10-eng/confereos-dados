@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 21,
+  "v": 22,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-21.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-22.html"
  },
  "apk": {
   "v": 6,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Leitura do carimbo no formato das suas fotos",
+ "nota": "OS 3502780 duplicada: fica 1 registro",
  "data": "01/11/2026"
 }
