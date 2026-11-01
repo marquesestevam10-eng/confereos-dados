@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 18;                       // versão da interface (sobe a cada publicação)
+const APP_V = 21;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13660,7 +13660,7 @@ async function processarFoto(file, agora) {
   if (ex.gps) { [lat, lng] = ex.gps; origem = "foto"; }
   const url = URL.createObjectURL(file);
   const img = await carregarImg(url);
-  if (!ex.gps || !ex.em) {                       // sem GPS/data no arquivo: lê o que está ESCRITO na foto (carimbo)
+  {                                               // lê sempre o que está ESCRITO na foto (carimbo): data, endereço e coordenada
     const kk = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight)), oc = document.createElement("canvas");
     oc.width = Math.round(img.naturalWidth * kk); oc.height = Math.round(img.naturalHeight * kk); oc.getContext("2d").drawImage(img, 0, 0, oc.width, oc.height);
     const bruto = await ocrFoto(await new Promise(ok => oc.toBlob(ok, "image/jpeg", 0.92)));
@@ -13668,7 +13668,7 @@ async function processarFoto(file, agora) {
     else if (bruto == null) carimbo = { erro: ANDROID && window.Android.ocr ? "leitor não respondeu" : "este app ainda não tem o leitor de carimbo (instale a versão nova)", texto: "" };
     else carimbo = lerCarimbo(bruto) || { texto: bruto };
     if (carimbo && carimbo.lat != null && !ex.gps) { lat = carimbo.lat; lng = carimbo.lng; origem = "carimbo"; }
-    if (carimbo && carimbo.em && !ex.em) { ex.em = carimbo.em; ex.emCarimbo = 1; }
+    if (carimbo && carimbo.em) { ex.em = carimbo.em; ex.emCarimbo = 1; }   // a data escrita no carimbo prevalece
   }
   // sem coordenada nenhuma, mas com endereço escrito na foto → acha o ponto pelo endereço
   if (lat == null && carimbo && carimbo.endTxt) {
@@ -13931,8 +13931,10 @@ function lerCarimbo(txt) {
   // data e hora
   const d1 = t.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
   const d2 = t.match(/(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
+  const MES = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12, feb: 2, apr: 4, may: 5, aug: 8, sep: 9, oct: 10, dec: 12 };
+  const d3 = t.match(/(\d{1,2})\s*(?:de\s+)?(jan|fev|feb|mar|abr|apr|mai|may|jun|jul|ago|aug|set|sep|out|oct|nov|dez|dec)[a-zç]*\.?\s*(?:de\s+)?(\d{4})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/i);
   let y, mo, d, h, mi, se, ap;
-  if (d1) [, d, mo, y, h, mi, se, ap] = d1; else if (d2) [, y, mo, d, h, mi, se, ap] = d2;
+  if (d1) [, d, mo, y, h, mi, se, ap] = d1; else if (d2) [, y, mo, d, h, mi, se, ap] = d2; else if (d3) { [, d, mo, y, h, mi, se, ap] = d3; mo = MES[mo.toLowerCase().slice(0, 3)]; }
   if (y) { h = +h; if (ap && /pm/i.test(ap) && h < 12) h += 12; if (ap && /am/i.test(ap) && h === 12) h = 0;
     const dt = new Date(+y, +mo - 1, +d, h, +mi, +(se || 0)); if (!isNaN(dt) && +y > 2015) out.em = dt.getTime(); }
   // endereço impresso no carimbo (ex.: "Rua F, Travessa 9" / "Dom Luciano, Aracaju - SE")
@@ -13943,11 +13945,23 @@ function lerCarimbo(txt) {
 const MUNICIPIOS = ["Aracaju", "Nossa Senhora do Socorro", "São Cristóvão", "Barra dos Coqueiros", "Laranjeiras", "Maruim", "Riachuelo", "Santo Amaro das Brotas", "Itaporanga d'Ajuda", "Divina Pastora", "Siriri", "Rosário do Catete", "Carmópolis", "General Maynard", "Pirambu", "Santa Rosa de Lima", "Japaratuba", "Capela", "Malhador", "Areia Branca", "Itabaiana", "Estância"];
 const semAcento = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 function enderecoDoCarimbo(txt) {
-  const ruido = /\b(lat|long|latitude|longitude|gmt|utc|alt|altitude|precis|accuracy|velocidade|km\/h|nota|note|bussola|compass)\b|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{1,2}:\d{2}|°/i;
-  const ehEnd = l => /^(r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto|loteamento|lot\.?|quadra|qd\.?|bairro|povoado|residencial|cond\.?|condom[ií]nio)\b/i.test(l)
+  const ruido = /\b(lat|long|latitude|longitude|gmt|utc|alt|altitude|precis|accuracy|velocidade|km\/h|nota|note|bussola|compass|encarregad[oa]|pavimenta|equipe)\b|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{1,2}:\d{2}|°|\d+[.,]\d+\s*[NSWO]\b/i;
+  const ehEnd = l => /^(r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto|loteamento|lot\.?|quadra|qd\.?|bairro|povoado|residencial|cond\.?|condom[ií]nio)(?![a-zà-ú])/i.test(l)
     || /\b\d{5}-?\d{3}\b/.test(l) || /\b(SE|Sergipe)\b/.test(l) || MUNICIPIOS.some(m => semAcento(l).includes(semAcento(m)));
-  const lin = String(txt || "").split(/\n/).map(x => x.trim()).filter(l => l.length > 3 && !ruido.test(l));
-  const linhas = lin.filter(ehEnd).slice(0, 3);
+  const lin = String(txt || "").split(/\n/).map(x => x.trim()).filter(l => l.length > 1 && !ruido.test(l));
+  // formato dos apps de carimbo: "97 Travessa F" / "Dom Luciano" / "Aracaju" / "Sergipe"
+  const RUA = /^(\d+[a-zA-Z]?)\s+((?:r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto|loteamento|quadra|beco|ladeira|largo|vila)\b.*)$/i;
+  const iR = lin.findIndex(l => RUA.test(l));
+  if (iR >= 0) {
+    const [, num, rua] = lin[iR].match(RUA); const r = { num, rua };
+    const resto = lin.slice(iR + 1).filter(l => !/^(SE|Sergipe|Brasil|Brazil)$/i.test(l));
+    const iM = resto.findIndex(l => MUNICIPIOS.some(m => semAcento(l) === semAcento(m)));
+    if (iM >= 0) { r.mun = MUNICIPIOS.find(m => semAcento(resto[iM]) === semAcento(m)); if (iM > 0) r.bairro = resto.slice(0, iM).join(", "); }
+    else if (resto[0]) r.bairro = resto[0];
+    r.endTxt = [rua + ", " + num, r.bairro, r.mun].filter(Boolean).join(", ");
+    return r;
+  }
+  const linhas = lin.filter(l => l.length > 3).filter(ehEnd).slice(0, 3);
   if (!linhas.length) return {};
   let tudo = linhas.join(", ").replace(/\s+/g, " ").replace(/,\s*,/g, ",");
   tudo = tudo.replace(/,?\s*\b(Brasil|Brazil)\b/gi, "").replace(/\b\d{5}-?\d{3}\b,?/g, "").replace(/\s*-\s*SE\b/g, "").replace(/,\s*(SE|Sergipe)\b/gi, "").replace(/\s*,\s*$/, "").trim();
@@ -13955,6 +13969,7 @@ function enderecoDoCarimbo(txt) {
   const r = { endTxt: tudo };
   const iMun = partes.findIndex(p => MUNICIPIOS.some(m => semAcento(p) === semAcento(m)));
   if (iMun >= 0) { r.mun = MUNICIPIOS.find(m => semAcento(partes[iMun]) === semAcento(m)); if (iMun > 0 && !/^(r\.|rua|av|tv|travessa)/i.test(partes[iMun - 1]) && !/^\d+[a-z]?$/i.test(partes[iMun - 1])) r.bairro = partes[iMun - 1].replace(/^bairro\s+/i, ""); }
+  if (iMun < 0 && partes.length >= 2 && !/^(n[º°o.]?\s*)?\d+[a-z]?$/i.test(partes[partes.length - 1]) && /^(n[º°o.]?\s*)?\d+[a-z]?$/i.test(partes[partes.length - 2] || "")) r.bairro = partes[partes.length - 1].replace(/^bairro\s+/i, "");
   const ruaParts = partes.filter((p, i) => i !== iMun && p.replace(/^bairro\s+/i, "") !== r.bairro);
   if (ruaParts.length) {
     const n = ruaParts.find(p => /^(n[º°o.]?\s*)?\d+[a-z]?$/i.test(p));
@@ -14523,7 +14538,12 @@ function abrirForm(r, op = {}) {
             await definirLoc({ lat: f.lat, lng: f.lng, origem: "endereco" }, false);
             const c = f.carimbo; if (c.rua) { $("#frua", s).value = c.rua; $("#fnum", s).value = c.num || ""; } if (c.bairro) $("#fbai", s).value = c.bairro; if (c.mun) $("#fmun", s).value = c.mun;
             checaDup(); aviso(`📍 Localizado pelo endereço escrito na foto${c.geo?.aprox ? " (aproximado: bairro)" : ""}`, 5000);
-          } else { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc, agora: f.origem === "gps" ? 1 : 0 }, true, true); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
+          } else {
+            await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc, agora: f.origem === "gps" ? 1 : 0 }, true, true);
+            // o endereço ESCRITO no carimbo vale mais que o achado pela coordenada
+            const c = f.carimbo; if (c?.rua) { $("#frua", s).value = c.rua; $("#fnum", s).value = c.num || ""; if (c.bairro) $("#fbai", s).value = c.bairro; if (c.mun) $("#fmun", s).value = c.mun; checaDup(); }
+            else if (c?.num && !$("#fnum", s).value) $("#fnum", s).value = c.num;
+          }
         }
         else if (distM([LOC.lat, LOC.lng], [f.lat, f.lng]) > 150) aviso(`⚠ Essa foto está a ${Math.round(distM([LOC.lat, LOC.lng], [f.lat, f.lng]))} m do ponto da OS`);
       } else if (!agora) aviso("📷 Não achei coordenada nessa foto: nem gravada no arquivo, nem escrita no carimbo. Veja abaixo o que o app leu.", 7000);
@@ -14560,7 +14580,9 @@ function abrirForm(r, op = {}) {
   $("#fcoord", s).onclick = () => {
     const v = prompt("Cole a coordenada (ex.: -10.9123, -37.0531) ou um link do Google Maps:"); if (!v) return;
     const m = v.match(/(-?\d{1,2}[.,]\d+)\s*[, ;]\s*(-?\d{1,3}[.,]\d+)/); if (!m) return aviso("Coordenada inválida");
-    definirLoc({ lat: +m[1].replace(",", "."), lng: +m[2].replace(",", "."), origem: "manual" });
+    let la = +m[1].replace(",", "."), lo = +m[2].replace(",", ".");
+    if (la > 0 && la < 15 && lo > 30 && lo < 45) { la = -la; lo = -lo; } else if (la > 0 && la < 15) la = -la; else if (lo > 30 && lo < 45) lo = -lo;   // Sergipe: sul e oeste
+    definirLoc({ lat: la, lng: lo, origem: "manual" });
   };
 
   // ---- salvar
@@ -14922,6 +14944,11 @@ function telaRel(m) {
     <div class="row" style="margin-top:8px"><button class="btn" id="rdocx">📄 Word</button><button class="btn" id="rcsv">📊 Excel</button><button class="btn" id="rzap">💬 Resumo</button></div>
     <button class="btn g w" style="margin-top:8px" id="rgravar">💾 Gravar este relatório</button>
   </div>
+  ${privado() || pode("conferir") ? `<div class="card"><h2>📤 Enviar ao ConfereOS</h2>
+    <div class="small muted">Manda só as triagens (asfalto, calçada e paralelo: OS, endereço, medidas, m², t, código, fotos e mapa) — <b>sem valores</b>. O ConfereOS é quem cruza com a medição.</div>
+    <div class="chips" style="margin-top:8px">${[["novas", "Ainda não enviadas"], ["todas", "Todas"]].map(([k, n]) => `<button class="chip ${(REL.envio || "novas") === k ? "on" : ""}" data-renv="${k}">${n}</button>`).join("")}</div>
+    <div class="small" id="renvinfo" style="margin:6px 0"></div>
+    <button class="btn p w" id="renviar">📤 Gerar arquivo para o ConfereOS</button></div>` : ""}
   <div id="rgrav"></div>`;
   $$("[data-rt]", m).forEach(b => b.onclick = () => { REL.tipo = b.dataset.rt; render(); });
   $$("[data-rpav]", m).forEach(b => b.onclick = () => { REL.pav = b.dataset.rpav; render(); });
@@ -14933,6 +14960,9 @@ function telaRel(m) {
   $("#rdocx", m).onclick = async () => { await gravarRelatorio(true); gerarDocx(); };
   $("#rgravar", m).onclick = async () => { await gravarRelatorio(false); listaGravados($("#rgrav", m)); };
   listaGravados($("#rgrav", m));
+  const envInfo = () => { const l = paraConfere(); const el = $("#renvinfo", m); if (el) el.innerHTML = `<b>${l.length}</b> OS triadas${l.length ? " · " + Object.entries(TIPOS).map(([k, v]) => [v.n, l.filter(r => tipoDe(r.tri) === k).length]).filter(x => x[1]).map(x => x.join(": ")).join(" · ") : ""}`; };
+  $$("[data-renv]", m).forEach(b => b.onclick = () => { REL.envio = b.dataset.renv; render(); });
+  envInfo(); const be = $("#renviar", m); if (be) be.onclick = enviarConfere;
   $("#rcsv", m).onclick = () => gerarCSV();
   $("#rzap", m).onclick = () => compartilhar(resumoTexto());
 }
@@ -15149,6 +15179,31 @@ async function gerarDocx() {
   await baixar(nomeArq("docx"), zip(files), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 }
 
+/* ---------- Enviar ao ConfereOS: só triagem, sem valores ---------- */
+function paraConfere() {
+  return [...OS.values()].filter(r => r._st !== "cancelada" && (REL.envio === "todas" || !r.tri.enviadoConfere)).sort((a, b) => (a.tri.emFoto || a.criado.em) - (b.tri.emFoto || b.criado.em));
+}
+async function enviarConfere() {
+  const l = paraConfere(); if (!l.length) return aviso("Nenhuma triagem nova para enviar");
+  aviso(`📦 Preparando ${l.length} OS para o ConfereOS…`, 15000);
+  const reduz = async (u, w) => { const j = await imgJPG(u, w); if (!j) return null; let b = ""; for (let i = 0; i < j.u8.length; i += 0x8000) b += String.fromCharCode.apply(null, j.u8.subarray(i, i + 0x8000)); return "data:image/jpeg;base64," + btoa(b); };
+  const linhas = [];
+  for (const r of l) {
+    const T = r.tri, c = r._c, fotos = [];
+    for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) { const d = await reduz(u, 900); if (d) fotos.push(d); } }
+    let mapa = null; if (T.lat != null) { const u = await miniMapa(T.lat, T.lng, "OS " + r.os); if (u) mapa = u; }
+    linhas.push({ os: r.os, dia: T.dia, emFoto: T.emFoto || r.criado.em, tipo: tipoDe(T), servico: T.servico, servicoNome: (SERV[T.servico] || {}).n,
+      end: { rua: T.end?.rua || "", num: T.end?.num || "", bairro: T.end?.bairro || "", mun: T.end?.mun || "" },
+      medidas: (T.trechos || []).map(t => `${t.c} x ${t.l}`).join(" + ") + " m", area: +c.area.toFixed(2), massa: +c.massa.toFixed(3), entulho: !!T.entulho,
+      obs: T.obs || "", encarregado: nomePerfil(r.criado.por) + " - Enc. Pavimentação", lat: T.lat ?? null, lng: T.lng ?? null, navegar: T.lat != null ? navUrl(T.lat, T.lng) : null, fotos, mapa });
+  }
+  const arq = { formato: "triagemos-para-confereos", versao: 1, gerado: new Date().toISOString(), por: EU.nome, n: linhas.length, linhas };
+  const nome = `TriagemOS_para_ConfereOS_${brDia(isoDia()).replace(/\//g, "-")}_${linhas.length}OS.json`;
+  await baixar(nome, new Blob([JSON.stringify(arq)], { type: "application/json" }), "application/json");
+  for (const r of l) { r.tri.enviadoConfere = Date.now(); r.tri.upd = Date.now(); await salvarOS(r, "editada", "enviada ao ConfereOS"); }
+  aviso(`✅ Arquivo pronto (${linhas.length} OS). Mande o arquivo para o Claude publicar no ConfereOS.`, 8000); render();
+}
+
 /* ================= Tela grande (computador / TV) com QR Code — igual WhatsApp Web =================
    1) O computador abre a página tela.html e mostra um QR (código da sessão + chave pública ECDH).
    2) No celular: Ajustes → 📺 Conectar tela grande → a câmera lê o QR.
@@ -15294,12 +15349,14 @@ function telaAjustes(m) {
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
+  ${privado() ? `<div class="card"><h2>⚠️ Duplicidade</h2><div class="small muted">Se você conferiu e as OS estão certas, zere os alertas de agora. As OS novas continuam sendo verificadas.</div><button class="btn w" style="margin-top:10px" id="ajzerodup">✔ Zerar alertas de duplicidade</button></div>` : ""}
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
   const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
+  const zd = $("#ajzerodup"); if (zd) zd.onclick = () => { if (confirm("Zerar todos os alertas de duplicidade de agora?")) zerarDuplicidades(true); };
   $("#ajsync").onclick = () => { SYNC.etag = null; sincronizar(true).then(render); };
   $("#ajupd").onclick = () => checarAtualizacao(true);
   $("#ajexp").onclick = () => baixar(`TriagemOS_backup_${brDia(isoDia()).replace(/\//g, "-")}.json`, new Blob([JSON.stringify({ app: "TriagemOS", gerado: new Date().toISOString(), por: EU.nome, os: [...OS.values()].map(limpo) }, null, 1)], { type: "application/json" }), "application/json");
@@ -15336,8 +15393,21 @@ async function checarAtualizacao(manual) {
   } catch (e) { msg("Não consegui procurar atualização: " + (e.message || "sem internet")); }
 }
 
+/* zera os alertas de duplicidade que existem hoje (o Estevam conferiu: não são duplicidade). OS novas continuam sendo verificadas. */
+async function zerarDuplicidades(manual) {
+  const mexer = new Map();
+  for (const r of OS.values()) {
+    if (r._st === "cancelada") continue;
+    const d = duplicatas(r); if (!d.length) continue;
+    for (const x of d) { for (const [a, b] of [[r, x.r], [x.r, r]]) { const m = mexer.get(a.id) || new Set(a.tri.naoDup || []); m.add(b.id); mexer.set(a.id, m); } }
+  }
+  for (const [id, set] of mexer) { const r = OS.get(id); r.tri.naoDup = [...set]; r.tri.upd = Date.now(); await salvarOS(r, "editada", "alerta de duplicidade zerado (conferido)"); }
+  if (manual || mexer.size) aviso(mexer.size ? `✅ Alertas de duplicidade zerados em ${mexer.size} OS` : "✅ Não há alertas de duplicidade", 5000);
+  render();
+}
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
+  if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
   setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
 }
