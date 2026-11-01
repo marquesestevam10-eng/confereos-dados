@@ -13259,7 +13259,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 7;                       // versão da interface (sobe a cada publicação)
+const APP_V = 8;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13670,6 +13670,15 @@ async function enderecoDe(lat, lng) {
       fonte: "coordenadas",
     };
     await kvSet(k, e); return e;
+  } catch (e) { return null; }
+}
+
+/* endereço → coordenada (busca no OpenStreetMap, limitada a Sergipe) */
+async function coordDeEndereco(q) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(q + (/sergipe|\bse\b/i.test(q) ? "" : ", Sergipe"))}`);
+    if (!r.ok) return null; const j = await r.json(); if (!j.length) return null;
+    return { lat: +(+j[0].lat).toFixed(6), lng: +(+j[0].lon).toFixed(6), nome: j[0].display_name.split(",").slice(0, 3).join(",") };
   } catch (e) { return null; }
 }
 
@@ -14505,7 +14514,7 @@ function rotaEquipe(box) {
 /* ================= Rastreador de áreas maiores / sobra de massa =================
    Ex.: 15h, a equipe ainda tem 4 t no caminhão. Acha OS de asfalto pendentes perto
    (áreas maiores primeiro) que caibam na massa e no tempo que resta. Sem desperdício. */
-let SOBRA = { t: "", ref: null, refTxt: "", fim: "17:00", equipe: "" };
+let SOBRA = { t: "", ref: null, refTxt: "", fim: "17:00", equipe: "", endTxt: "", modoRef: "" };
 const pendAsfalto = () => [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && tipoDe(r.tri) === "asfalto" && r.tri.lat != null && r._c.massa > 0 && !duplicatas(r).some(d => d.r._st === "executada"));
 const minViagem = km => Math.round(4 + km * 3);              // trânsito urbano ~20 km/h + estacionar
 const minServico = r => 12 + 4 * r._c.area;                  // regra do RDS
@@ -14542,10 +14551,11 @@ function sobraMassa(box) {
     <div class="grid2"><div><input class="in mono" id="st" inputmode="decimal" placeholder="Outro valor" value="${esc(SOBRA.t)}"></div>
     <div><input class="in" type="time" id="sfim" value="${SOBRA.fim}" title="Fim do serviço"></div></div>
     <div class="small muted" style="margin-top:2px">À direita: hora que a equipe encerra.</div>
-    <label class="f">Onde a equipe está</label>
-    <div class="row"><button class="btn sm ${SOBRA.refTxt === "gps" ? "p" : ""}" id="sgps">📍 Aqui (GPS)</button><button class="btn sm ${SOBRA.refTxt.startsWith("eq") ? "p" : ""}" id="seq">🚚 Última OS da equipe</button></div>
-    <div id="seqbox"></div>
-    ${ref ? `<div class="small muted" style="margin-top:6px">Ponto: ${SOBRA.refTxt === "gps" ? "GPS agora" : "última OS da " + esc(SOBRA.refTxt)} · ${mins ? `faltam ${duracao(mins * 6e4)} até ${SOBRA.fim}` : "<b style='color:var(--bad)'>já passou do horário</b>"}</div>` : ""}
+    <label class="f">Equipe</label>${campoEquipe("seqe", SOBRA.equipe)}
+    <label class="f">Onde a equipe está agora (último endereço)</label>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><input class="in" id="send" placeholder="Rua e nº, bairro, cidade · ou nº da OS" value="${esc(SOBRA.endTxt || "")}"><button class="btn p" id="sbusca" style="flex:none">🔎</button></div>
+    <div class="row" style="margin-top:6px"><button class="btn sm ${SOBRA.modoRef === "gps" ? "p" : ""}" id="sgps">📍 Estou com a equipe</button><button class="btn sm ${SOBRA.modoRef === "ult" ? "p" : ""}" id="sult">🚚 Última OS de hoje</button></div>
+    ${ref ? `<div class="alert o" style="margin-top:8px">📍 <span><b>${esc(SOBRA.refTxt)}</b><br><a href="${navUrl(ref[0], ref[1])}">${ref[0].toFixed(5)}, ${ref[1].toFixed(5)} · ver no mapa</a> · ${mins ? `faltam ${duracao(mins * 6e4)} até ${SOBRA.fim}` : "<b style='color:var(--bad)'>já passou do horário</b>"}</span></div>` : ""}
   </div>
   ${pl ? `<div class="card"><h2>✅ Aproveitamento de ${nf(ton)} t <span class="r">${pl.lista.length} OS</span></h2>
     <div class="calc" style="margin-top:0"><div><b>${nf(pl.usado)}</b><span>t aproveitadas</span></div><div><b>${nf(pl.resta)}</b><span>t sobrando</span></div><div><b>${duracao(pl.tempo * 6e4)}</b><span>tempo</span></div></div>
@@ -14555,7 +14565,7 @@ function sobraMassa(box) {
     ${(() => { const fora = pendAsfalto().filter(r => !pl.lista.includes(r) && r._c.massa <= ton * 1.05 && r._c.massa > 0.5).map(r => ({ r, min: minViagem(distM(ref, [r.tri.lat, r.tri.lng]) / 1000) + minServico(r) })).filter(x => x.min > mins - pl.tempo).sort((a, b) => b.r._c.massa - a.r._c.massa).slice(0, 2);
       return fora.map(x => `<div class="alert i small">⏱ OS ${esc(x.r.os)} (${nf(x.r._c.massa)} t) ficou de fora: precisa de ~${duracao(x.min * 6e4)}. Se der pra estender o horário, ajuste o “Fim do serviço”.</div>`).join(""); })()}
     ${pl.lista.length ? `<div class="row" style="margin-top:10px"><button class="btn sm" id="sgm">🧭 Google Maps</button><button class="btn sm" id="szap">💬 WhatsApp</button></div>
-    ${pode("programar") ? `<label class="f">Equipe</label>${campoEquipe("seqp", SOBRA.equipe)}<button class="btn bl w" style="margin-top:8px" id="sprog">✅ Programar para hoje</button>` : ""}` : ""}
+    ${pode("programar") ? `<button class="btn bl w" style="margin-top:8px" id="sprog">✅ Programar para a equipe ${esc(SOBRA.equipe || "?")} hoje</button>` : ""}` : ""}
   </div>` : `<div class="alert i">Toque em quanto sobrou e onde a equipe está.</div>`}
   <div class="card"><h2>📏 Áreas maiores pendentes <span class="r">${ref ? "perto primeiro" : "maior primeiro"}</span></h2>
     ${maiores.map(({ r, km }) => `<div class="achado" style="align-items:center"><span style="flex:1" data-os="${r.id}"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}${km != null ? ` · ${nf(km, 1)} km` : ""} · ⏳ ${duracao(vida(r).ms)}${r._c.massa > CARGA ? " · <b>mais de uma carga</b>" : ""}</span></span><a class="navb" href="${navUrl(r.tri.lat, r.tri.lng)}">🧭</a></div>`).join("") || '<div class="muted small">Nenhuma OS de asfalto pendente com coordenada.</div>'}
@@ -14563,30 +14573,41 @@ function sobraMassa(box) {
   $$("[data-st]", box).forEach(b => b.onclick = () => { SOBRA.t = b.dataset.st; render(); });
   let tm; $("#st", box).oninput = e => { clearTimeout(tm); tm = setTimeout(() => { SOBRA.t = e.target.value; render(); }, 700); };
   $("#sfim", box).onchange = e => { SOBRA.fim = e.target.value; render(); };
-  $("#sgps", box).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível"); SOBRA.ref = [g.lat, g.lng]; SOBRA.refTxt = "gps"; render(); };
-  $("#seq", box).onclick = () => {
-    const eqs = equipesConhecidas();
-    $("#seqbox", box).innerHTML = `<div class="chips" style="margin-top:8px">${eqs.map(e => `<button class="chip" data-seq="${esc(e)}">Equipe ${esc(e)}</button>`).join("")}</div>`;
-    $$("[data-seq]", box).forEach(b => b.onclick = () => {
-      const e = b.dataset.seq, hoje = isoDia();
-      const l = [...OS.values()].filter(r => r.tri.lat != null && ((ativa(r.exec) && r.exec.data === hoje && (r.exec.equipe || r.prog?.equipe) === e) || (r._st === "programada" && r.prog.data === hoje && r.prog.equipe === e)));
-      if (!l.length) return aviso(`Equipe ${esc(e)} sem OS hoje com coordenada. Use “Minha localização”.`);
-      const ult = l.sort((a, b) => (ativa(b.exec) ? b.exec.em : 0) - (ativa(a.exec) ? a.exec.em : 0) || (b.prog?.ordem || 0) - (a.prog?.ordem || 0))[0];
-      SOBRA.ref = [ult.tri.lat, ult.tri.lng]; SOBRA.refTxt = "equipe " + e; SOBRA.equipe = e; render();
-    });
+  const eqTxt = () => SOBRA.equipe ? "Equipe " + SOBRA.equipe : "Equipe";
+  let te; $("#seqe", box).oninput = e => { clearTimeout(te); te = setTimeout(() => { SOBRA.equipe = e.target.value.trim(); lembrarEquipe(SOBRA.equipe); const b = $("#sprog", box); if (b) b.textContent = `✅ Programar para a equipe ${SOBRA.equipe || "?"} hoje`; }, 400); };
+  $("#sgps", box).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível"); SOBRA.ref = [g.lat, g.lng]; SOBRA.modoRef = "gps"; SOBRA.refTxt = eqTxt() + " · GPS do celular"; render(); };
+  async function buscar() {
+    const q = $("#send", box).value.trim(); if (!q) return aviso("Digite o endereço ou o nº da OS onde a equipe está");
+    SOBRA.endTxt = q;
+    const os = [...OS.values()].find(r => r.os === q.toUpperCase().replace(/\s/g, "") && r.tri.lat != null);
+    const cc = q.match(/(-?\d{1,2}[.,]\d+)\s*[, ;]\s*(-?\d{1,3}[.,]\d+)/);
+    if (os) { SOBRA.ref = [os.tri.lat, os.tri.lng]; SOBRA.refTxt = `${eqTxt()} · na OS ${os.os} (${endTxt(os.tri.end, 1)})`; }
+    else if (cc) { SOBRA.ref = [+cc[1].replace(",", "."), +cc[2].replace(",", ".")]; SOBRA.refTxt = eqTxt() + " · coordenada digitada"; }
+    else { aviso("🔎 Procurando o endereço…", 6000); const g = await coordDeEndereco(q); if (!g) return aviso("Não achei esse endereço. Tente com bairro e cidade, ou o nº de uma OS."); SOBRA.ref = [g.lat, g.lng]; SOBRA.refTxt = `${eqTxt()} · ${g.nome}`; }
+    SOBRA.modoRef = "end"; render();
+  }
+  $("#sbusca", box).onclick = buscar;
+  $("#send", box).onkeydown = e => { if (e.key === "Enter") buscar(); };
+  $("#sult", box).onclick = () => {
+    const e = SOBRA.equipe; if (!e) return aviso("Digite o número da equipe primeiro");
+    const hoje = isoDia();
+    const l = [...OS.values()].filter(r => r.tri.lat != null && ((ativa(r.exec) && r.exec.data === hoje && (r.exec.equipe || r.prog?.equipe) === e) || (r._st === "programada" && r.prog.data === hoje && r.prog.equipe === e)));
+    if (!l.length) return aviso(`Equipe ${esc(e)} sem OS hoje no app. Digite o último endereço onde ela está.`);
+    const ult = l.sort((a, b) => (ativa(b.exec) ? b.exec.em : 0) - (ativa(a.exec) ? a.exec.em : 0) || (b.prog?.ordem || 0) - (a.prog?.ordem || 0))[0];
+    SOBRA.ref = [ult.tri.lat, ult.tri.lng]; SOBRA.modoRef = "ult"; SOBRA.refTxt = `Equipe ${e} · última OS ${ult.os} (${endTxt(ult.tri.end, 1)})`; render();
   };
   if (pl && pl.lista.length) {
     $("#sgm", box).onclick = () => { const p = r => `${r.tri.lat},${r.tri.lng}`; const pts = pl.lista.slice(0, 10); location.href = `https://www.google.com/maps/dir/?api=1&origin=${ref.join(",")}&destination=${p(pts[pts.length - 1])}${pts.length > 1 ? "&waypoints=" + encodeURIComponent(pts.slice(0, -1).map(p).join("|")) : ""}&travelmode=driving`; };
     $("#szap", box).onclick = () => compartilhar(`♻️ Aproveitar massa — sobra de ${nf(ton)} t\nUsa ${nf(pl.usado)} t em ${pl.lista.length} OS:\n\n` + pl.lista.map((r, i) => `${i + 1}. OS ${r.os} — ${endTxt(r.tri.end)} — ${nf(r._c.area)} m² · ${nf(r._c.massa)} t\n   🧭 ${navUrl(r.tri.lat, r.tri.lng)}`).join("\n"));
     const pb = $("#sprog", box); if (pb) pb.onclick = async () => {
-      const eq = $("#seqp", box).value.trim(); if (!eq) return aviso("Digite o número da equipe"); await lembrarEquipe(eq);
+      const eq = SOBRA.equipe; if (!eq) return aviso("Digite o número da equipe lá em cima"); await lembrarEquipe(eq);
       for (let i = 0; i < pl.lista.length; i++) { const r = pl.lista[i]; r.prog = { equipe: eq, data: isoDia(), ordem: 100 + i, obs: "aproveitamento de sobra de massa", por: EU.id, em: Date.now(), upd: Date.now() }; await salvarOS(r, "programada", `sobra de massa · equipe ${eq}`); }
       aviso(`✅ ${pl.lista.length} OS programadas para a equipe ${esc(eq)} hoje`); render();
     };
     const mp = novoMapa($("#map", box));
     if (mp) setTimeout(() => {
       if (mp !== _map) return; mp.invalidateSize(); const pts = [ref];
-      L.circleMarker(ref, { radius: 9, color: "#fff", fillColor: "#1f2a1d", fillOpacity: 1, weight: 3 }).addTo(mp).bindTooltip("Equipe");
+      L.circleMarker(ref, { radius: 9, color: "#fff", fillColor: "#1f2a1d", fillOpacity: 1, weight: 3 }).addTo(mp).bindTooltip(SOBRA.equipe ? "Equipe " + SOBRA.equipe : "Equipe", { permanent: true, direction: "top" });
       pl.lista.forEach((r, i) => { L.marker([r.tri.lat, r.tri.lng], { icon: pinIcon("#f2b705", (i + 1) + " · " + nf(r._c.massa, 1) + " t") }).addTo(mp).on("click", () => abrirOS(r.id)); pts.push([r.tri.lat, r.tri.lng]); });
       L.polyline(pts, { color: "#1f2a1d", weight: 3, dashArray: "6 6" }).addTo(mp); mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16, animate: false });
     }, 60);
