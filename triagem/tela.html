@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 24;                       // versão da interface (sobe a cada publicação)
+const APP_V = 25;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -15452,8 +15452,10 @@ async function autoMapas() {
   if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
-  if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
-  setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
+  if (!EU || !(pode("triar") || pode("editarTodos"))) return;
+  if (!(await kvGet("mapasCorrigidos1"))) setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
+  /* 01/11/2026: endereços conferidos pelo carimbo no servidor → baixa e refaz os mapas pelo endereço certo */
+  else if (temServidor() && !(await kvGet("mapasCorrigidos2"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; await corrigirMapas(false); await kvSet("mapasCorrigidos2", 1); }, 4000);
 }
 /* ---------- início ---------- */
 (async () => {
