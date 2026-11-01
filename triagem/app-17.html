@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 14;                       // versão da interface (sobe a cada publicação)
+const APP_V = 17;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13366,6 +13366,7 @@ function calcular(tri) {
   const areaOS = num(tri.areaOS);
   if (areaOS > 0) area = areaOS;                        // regra: totais da OS prevalecem
   const sv = SERV[tri.servico] || SERV["613287"];
+  // asfalto: m², m³ (3 cm) e t de CBUQ · calçada e paralelo: só m²
   return { area, areaMedida, volume: sv.cbuq ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
 }
 const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) p.push(e.bairro || "bairro a confirmar", e.mun || "município a confirmar"); return p.join(", "); };
@@ -13398,13 +13399,24 @@ const vidaCor = r => { const v = vida(r); if (v.feita) return "var(--exec)"; con
 const semAc = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(rua|r|avenida|av|travessa|tv|trav|praca|pc|alameda|al|rodovia|rod)\b\.?/g, "").replace(/[^a-z0-9]/g, "");
 const chaveEnd = e => { const rua = semAc(e?.rua), n = String(e?.num || e?.numFachada || "").replace(/\D/g, ""); return rua && n ? rua + "|" + n + "|" + semAc(e?.mun) : null; };
 const DUP_M = 12;   // metros: mesmo ponto
+/* ponto confiável = coordenada que veio da foto/carimbo/digitada, ou GPS do celular tirado NO LOCAL.
+   GPS do celular de quem cadastrou depois, em casa, pela galeria (versões antigas) e o ponto "aproximado pelo bairro" NÃO contam. */
+function pontoConfiavel(r) {
+  const T = r.tri || r, o = T.origemCoord || "foto";
+  if (T.lat == null || o === "endereco") return false;
+  if (o === "gps") { const c = r.criado?.em || Date.now(), f = T.emFoto || c; return Math.abs(c - f) < 2 * 36e5; }
+  return true;
+}
 function duplicatas(r) {
-  const T = r.tri || r, k = chaveEnd(T.end), out = [];
+  const T = r.tri || r, k = chaveEnd(T.end), out = [], tp = tipoDe(T), pc = pontoConfiavel(r), nao = T.naoDup || [];
   for (const x of OS.values()) {
     if (x.id === r.id || x._st === "cancelada") continue;
+    if (tipoDe(x.tri) !== tp) continue;                                   // calçada x asfalto no mesmo endereço não é duplicidade
+    if (nao.includes(x.id) || (x.tri.naoDup || []).includes(r.id)) continue;  // alguém já conferiu: "não é duplicidade"
     let motivo = null;
-    if (k && chaveEnd(x.tri.end) === k) motivo = "mesmo endereço e número";
-    else if (T.lat != null && x.tri.lat != null) { const d = distM([T.lat, T.lng], [x.tri.lat, x.tri.lng]); if (d <= DUP_M) motivo = `mesmo ponto (${Math.round(d)} m)`; }
+    if (x.os === (r.os || T.os)) motivo = "mesmo número de OS";
+    else if (k && chaveEnd(x.tri.end) === k) motivo = "mesmo endereço e número";
+    else if (pc && pontoConfiavel(x)) { const d = distM([T.lat, T.lng], [x.tri.lat, x.tri.lng]); if (d <= DUP_M) motivo = `mesmo ponto (${Math.round(d)} m)`; }
     if (motivo) out.push({ r: x, motivo, mesmaOS: x.os === (r.os || T.os) });
   }
   const ordem = { executada: 0, programada: 1, triada: 2 };
@@ -13414,10 +13426,11 @@ function dupTxt(d) {
   const x = d.r; const st = x._st === "executada" ? `JÁ EXECUTADA em ${brDia(x.exec.data)}` : x._st === "programada" ? `programada p/ eq. ${x.prog.equipe} em ${brDia(x.prog.data)}` : `triada em ${brDia(x.tri.dia)}`;
   return `OS ${x.os} — ${d.motivo} — ${st}`;
 }
-function dupHTML(lista, curto) {
+function dupHTML(lista, curto, r) {
   if (!lista.length) return "";
   const grave = lista.some(d => d.r._st === "executada");
-  return `<div class="alert ${grave ? "b" : "w"} dup">⚠️ <span><b>Possível duplicidade${grave ? " — local já executado" : ""}</b>${curto ? "" : "<br>Confira antes de mandar a equipe, pra não dar viagem perdida."}${lista.map(d => `<br>• <a href="#" data-dupos="${d.r.id}">${esc(dupTxt(d))}</a>`).join("")}</span></div>`;
+  const podeMarcar = r && EU && EU.id !== "tela" && EU.id !== "gerente";
+  return `<div class="alert ${grave ? "b" : "w"} dup">⚠️ <span><b>Possível duplicidade${grave ? " — local já executado" : ""}</b>${curto ? "" : "<br>Confira antes de mandar a equipe, pra não dar viagem perdida."}${lista.map(d => `<br>• <a href="#" data-dupos="${d.r.id}">${esc(dupTxt(d))}</a>${podeMarcar ? ` <button class="btn sm" style="padding:3px 8px;margin:3px 0" data-naodup="${r.id}|${d.r.id}">✔ Não é</button>` : ""}`).join("")}</span></div>`;
 }
 function hist(r, acao, extra) { (r.hist = r.hist || []).push(Object.assign({ em: Date.now(), por: EU.id, acao }, extra || {})); }
 
@@ -14136,9 +14149,10 @@ async function abrirOS(id) {
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
     <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
-    <div class="calc">${c.massa || SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
-    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Sem CBUQ"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
-    ${r._st !== "cancelada" ? dupHTML(duplicatas(r)) : ""}
+    <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
+    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Só m²"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
+    ${r._st !== "cancelada" ? dupHTML(duplicatas(r), false, r) : ""}
+    ${T.lat != null && !pontoConfiavel(r) ? `<div class="alert w small">📍 ${T.origemCoord === "endereco" ? "Ponto aproximado pelo endereço escrito na foto." : "Esse ponto veio do GPS do celular na hora do cadastro, não da foto."} Pra corrigir: <b>Editar triagem</b> e pôr as fotos de novo, ou digitar a coordenada.</div>` : ""}
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
     <div class="card" style="margin-top:10px"><dl class="kv">
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
@@ -14175,6 +14189,12 @@ async function abrirOS(id) {
   for (const i of $$("img[data-full]", s)) fotoURL(i.dataset.full).then(u => { if (u) i.src = u; });
   if (T.lat != null) miniMapa(T.lat, T.lng, "OS " + r.os).then(u => { const i = $("#dmap", s); if (u && i) i.src = u; });
 }
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-naodup]"); if (!b) return; e.preventDefault(); e.stopPropagation();
+  const [i1, i2] = b.dataset.naodup.split("|"); const r1 = OS.get(i1), r2 = OS.get(i2); if (!r1 || !r2) return;
+  for (const [x, y] of [[r1, r2], [r2, r1]]) { x.tri.naoDup = [...new Set([...(x.tri.naoDup || []), y.id])]; x.tri.upd = Date.now(); await salvarOS(x, "editada", "não é duplicidade de OS " + y.os); }
+  aviso(`✔ OS ${esc(r1.os)} e ${esc(r2.os)}: marcado que não é duplicidade`); abrirOS(i1); render();
+}, true);
 document.addEventListener("click", e => { const a = e.target.closest("[data-dupos]"); if (a) { e.preventDefault(); e.stopPropagation(); abrirOS(a.dataset.dupos); } }, true);
 document.addEventListener("click", e => { const i = e.target.closest("img[data-full]"); if (!i || !i.src) return; const d = document.createElement("div"); d.className = "lightbox"; d.innerHTML = `<img src="${i.src}">`; d.onclick = () => d.remove(); document.body.appendChild(d); });
 
@@ -14318,7 +14338,7 @@ function abrirForm(r, op = {}) {
     <label class="f">m² informado na OS (opcional)</label>
     <input class="in mono" id="faos" inputmode="decimal" value="${T.areaOS ? esc(String(T.areaOS).replace(".", ",")) : ""}" placeholder="Se o sistema já trouxer o total">
     <div class="calc" id="fcalc"></div>
-    <div class="small muted" style="margin:4px 2px 0">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t</div>
+    <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
     <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
@@ -14338,9 +14358,9 @@ function abrirForm(r, op = {}) {
   function calc() {
     T.areaOS = num($("#faos", s).value); T.servico = $("#fserv", s).value;
     const c = calcular(T);
-    const asf = SERV[T.servico].cbuq;
+    const asf = SERV[T.servico].cbuq, tp = tipoDe(T);
     $("#fcalc", s).innerHTML = (asf ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>`
-      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`) +
+      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tp].n.toLowerCase()}</span></div>`) +
       (c.massa > CARGA ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Acima de ${CARGA} t: precisa de ${Math.ceil(c.massa / CARGA)} cargas</div>` : "") +
       (c.diverge ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Medidas somam ${nf(c.areaMedida)} m² — vale o total da OS</div>` : "") +
       "";
@@ -14379,8 +14399,8 @@ function abrirForm(r, op = {}) {
   }
   /* duplicidade: mesmo endereço/número ou mesmo ponto de outra OS */
   function checaDup() {
-    const tmp = { id: r ? r.id : "__novo", os: $("#fos", s).value.trim().toUpperCase(), tri: { end: { rua: $("#frua", s).value, num: $("#fnum", s).value, numFachada: $("#ffach", s).value, mun: $("#fmun", s).value }, lat: LOC ? LOC.lat : null, lng: LOC ? LOC.lng : null } };
-    const d = duplicatas(tmp).filter(x => !x.mesmaOS);
+    const tmp = { id: r ? r.id : "__novo", os: $("#fos", s).value.trim().toUpperCase(), criado: { em: Date.now() }, tri: { servico: $("#fserv", s).value, naoDup: T.naoDup, end: { rua: $("#frua", s).value, num: $("#fnum", s).value, numFachada: $("#ffach", s).value, mun: $("#fmun", s).value }, lat: LOC ? LOC.lat : null, lng: LOC ? LOC.lng : null, origemCoord: LOC ? LOC.origem : null, emFoto: LOC && LOC.origem === "gps" ? Date.now() : (emDasFotos() || {}).em } };
+    const d = duplicatas(tmp).filter(x => !x.mesmaOS);   // mesmo nº de OS já é avisado no campo da OS
     $("#fdup", s).innerHTML = dupHTML(d);
     return d;
   }
@@ -14898,7 +14918,7 @@ async function abrirRel(snap) {
   const tabRes = `<table class="dt"><thead><tr><th>OS</th><th>Área (m²)</th><th>Volume (m³)</th><th>CBUQ (t)</th><th>Cargas de ${CARGA} t</th></tr></thead><tbody>
     ${Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? `<tr><td>${v.n}: ${x.n}</td><td>${nf(x.area)}</td><td>${x.vol ? nf(x.vol, 3) : "—"}</td><td>${x.massa ? nf(x.massa) : "—"}</td><td>${x.massa ? Math.ceil(x.massa / CARGA) : "—"}</td></tr>` : ""; }).join("")}
     <tr class="tt"><td><b>Total: ${t.n} OS</b></td><td><b>${nf(t.area)}</b></td><td><b>${nf(t.vol, 3)}</b></td><td><b>${nf(t.massa)}</b></td><td><b>${Math.ceil(t.massa / CARGA) || 0}</b></td></tr></tbody></table>
-    <p class="nt">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t.</p>`;
+    <p class="nt">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t. Calçada e paralelo: só m².</p>`;
   let corpo = "";
   if (tp === "rds") {
     corpo += `<h2 class="d2">Resumo</h2>${tabRes}
@@ -14942,7 +14962,7 @@ function secaoRDS(r, n) {
   return `<div class="cf"><div class="cfh"><b>Sequência ${n} — OS ${esc(r.os)}</b>${T.lat != null ? `<a class="maplk" href="${navUrl(T.lat, T.lng)}">📍 mapa</a>` : ""}<span>${esc(endTxt(T.end, 1))} · ${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}</span></div>
     <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
       <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
-      <p><b>Área:</b> ${nf(c.area)} m²${SERV[T.servico].cbuq ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
+      <p><b>Área:</b> ${nf(c.area)} m²${c.volume ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ (3 cm)` : ""}${c.massa ? ` · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
       <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
       <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
       ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
@@ -15049,7 +15069,7 @@ async function gerarDocx() {
   body += wP("RDS · RELATÓRIO DIÁRIO DE SERVIÇOS · REGIONAL METROPOLITANA", { b: 1, sz: 8.5, cor: "9A6A08" });
   body += wP(d.titulo, { b: 1, sz: 16, cor: "0B2545", depois: 40 });
   body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${d.enc} · ${d.per}`, { sz: 10, cor: "5A6780", depois: 120 });
-  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "3 cm (2,4 t/m³ → 0,072 t/m²)"]]);
+  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "Asfalto 3 cm · 2,4 t/m³ (0,072 t/m²) · calçada e paralelo só m²"]]);
   if (tipoRel() === "rds") {
     let n = 0;
     for (const r of d.lista) {
@@ -15057,7 +15077,7 @@ async function gerarDocx() {
       const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}`;
       const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
       body += wP(`Sequência ${n} — OS ${r.os} — ${endTxt(T.end, 1)}`, { b: 1, sz: 11.5, cor: "FFFFFF", fundo: "0B2545", antes: 240, depois: 60 });
-      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(SERV[T.servico].cbuq ? [["Volume", nf(c.volume, 3) + " m³"], ["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}`], ["Observação", obs || "—"]]);
+      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(c.volume ? [["Volume (3 cm)", nf(c.volume, 3) + " m³"]] : []), ...(c.massa ? [["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}`], ["Observação", obs || "—"]]);
       let ims = "";
       for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) ims += await addImg(u); }
       let lk = null;

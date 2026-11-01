@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 16;                       // versão da interface (sobe a cada publicação)
+const APP_V = 17;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13366,8 +13366,8 @@ function calcular(tri) {
   const areaOS = num(tri.areaOS);
   if (areaOS > 0) area = areaOS;                        // regra: totais da OS prevalecem
   const sv = SERV[tri.servico] || SERV["613287"];
-  // espessura 3 cm no asfalto e na calçada (volume); paralelo só m². Tonelada (CBUQ) só no asfalto.
-  return { area, areaMedida, volume: (sv.cbuq || sv.tipo === "calcada") ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
+  // asfalto: m², m³ (3 cm) e t de CBUQ · calçada e paralelo: só m²
+  return { area, areaMedida, volume: sv.cbuq ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
 }
 const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) p.push(e.bairro || "bairro a confirmar", e.mun || "município a confirmar"); return p.join(", "); };
 function registro(r) { const c = calcular(r.tri || {}); return Object.assign(r, { _st: status(r), _c: c }); }
@@ -14149,8 +14149,8 @@ async function abrirOS(id) {
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
     <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
-    <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : tipoDe(T) === "calcada" ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div style="grid-column:2/4"><b>${nf(c.volume, 3)}</b><span>m³ de calçada</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de paralelo</span></div>`}</div>
-    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : tipoDe(T) === "calcada" ? "Espessura considerada 3 cm" : "Paralelo: só m²"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
+    <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
+    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Só m²"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
     ${r._st !== "cancelada" ? dupHTML(duplicatas(r), false, r) : ""}
     ${T.lat != null && !pontoConfiavel(r) ? `<div class="alert w small">📍 ${T.origemCoord === "endereco" ? "Ponto aproximado pelo endereço escrito na foto." : "Esse ponto veio do GPS do celular na hora do cadastro, não da foto."} Pra corrigir: <b>Editar triagem</b> e pôr as fotos de novo, ou digitar a coordenada.</div>` : ""}
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
@@ -14338,7 +14338,7 @@ function abrirForm(r, op = {}) {
     <label class="f">m² informado na OS (opcional)</label>
     <input class="in mono" id="faos" inputmode="decimal" value="${T.areaOS ? esc(String(T.areaOS).replace(".", ",")) : ""}" placeholder="Se o sistema já trouxer o total">
     <div class="calc" id="fcalc"></div>
-    <div class="small muted" style="margin:4px 2px 0">Espessura considerada: 3 cm no asfalto e na calçada (paralelo só m²) · asfalto 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t</div>
+    <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
     <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
@@ -14360,8 +14360,7 @@ function abrirForm(r, op = {}) {
     const c = calcular(T);
     const asf = SERV[T.servico].cbuq, tp = tipoDe(T);
     $("#fcalc", s).innerHTML = (asf ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>`
-      : tp === "calcada" ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div style="grid-column:2/4"><b>${nf(c.volume, 3)}</b><span>m³ de calçada (3 cm)</span></div>`
-      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de paralelo</span></div>`) +
+      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tp].n.toLowerCase()}</span></div>`) +
       (c.massa > CARGA ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Acima de ${CARGA} t: precisa de ${Math.ceil(c.massa / CARGA)} cargas</div>` : "") +
       (c.diverge ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Medidas somam ${nf(c.areaMedida)} m² — vale o total da OS</div>` : "") +
       "";
@@ -14919,7 +14918,7 @@ async function abrirRel(snap) {
   const tabRes = `<table class="dt"><thead><tr><th>OS</th><th>Área (m²)</th><th>Volume (m³)</th><th>CBUQ (t)</th><th>Cargas de ${CARGA} t</th></tr></thead><tbody>
     ${Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? `<tr><td>${v.n}: ${x.n}</td><td>${nf(x.area)}</td><td>${x.vol ? nf(x.vol, 3) : "—"}</td><td>${x.massa ? nf(x.massa) : "—"}</td><td>${x.massa ? Math.ceil(x.massa / CARGA) : "—"}</td></tr>` : ""; }).join("")}
     <tr class="tt"><td><b>Total: ${t.n} OS</b></td><td><b>${nf(t.area)}</b></td><td><b>${nf(t.vol, 3)}</b></td><td><b>${nf(t.massa)}</b></td><td><b>${Math.ceil(t.massa / CARGA) || 0}</b></td></tr></tbody></table>
-    <p class="nt">Espessura considerada: 3 cm no asfalto e na calçada (paralelo só m²) · asfalto 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t.</p>`;
+    <p class="nt">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t. Calçada e paralelo: só m².</p>`;
   let corpo = "";
   if (tp === "rds") {
     corpo += `<h2 class="d2">Resumo</h2>${tabRes}
@@ -15070,7 +15069,7 @@ async function gerarDocx() {
   body += wP("RDS · RELATÓRIO DIÁRIO DE SERVIÇOS · REGIONAL METROPOLITANA", { b: 1, sz: 8.5, cor: "9A6A08" });
   body += wP(d.titulo, { b: 1, sz: 16, cor: "0B2545", depois: 40 });
   body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${d.enc} · ${d.per}`, { sz: 10, cor: "5A6780", depois: 120 });
-  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "3 cm no asfalto e na calçada · paralelo só m² · asfalto 2,4 t/m³ (0,072 t/m²)"]]);
+  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "Asfalto 3 cm · 2,4 t/m³ (0,072 t/m²) · calçada e paralelo só m²"]]);
   if (tipoRel() === "rds") {
     let n = 0;
     for (const r of d.lista) {
