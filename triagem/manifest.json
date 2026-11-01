@@ -1,13 +1,13 @@
 {
  "app": {
-  "v": 6,
+  "v": 7,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html"
  },
  "apk": {
-  "v": 1,
+  "v": 2,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Sobra de massa: rastreador de áreas maiores perto da equipe",
- "data": "31/10/2026"
+ "nota": "Data e coordenada pela foto, colar texto da OS, Aproveitar massa, tela grande",
+ "data": "01/11/2026"
 }
