@@ -1,6 +1,6 @@
 {
  "app": {
-  "v": 12,
+  "v": 13,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html"
  },
  "apk": {
@@ -8,6 +8,6 @@
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Relatórios no padrão do ConfereOS e relatórios gravados",
+ "nota": "Código 613286 (calçada via local) e 613265 atualizado",
  "data": "01/11/2026"
 }

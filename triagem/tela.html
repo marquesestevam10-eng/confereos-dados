@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 12;                       // versão da interface (sobe a cada publicação)
+const APP_V = 13;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13283,13 +13283,14 @@ const SERV = {
   "613278": { n: "Recomposição asfáltica CBUQ — via arterial", cbuq: 1, tipo: "asfalto" },
   "613288": { n: "Recomposição asfáltica CBUQ — unidade consumidora (U.C.), via local", cbuq: 1, tipo: "asfalto" },
   "613279": { n: "Recomposição asfáltica CBUQ — unidade consumidora (U.C.), via arterial", cbuq: 1, tipo: "asfalto" },
-  "613284": { n: "Recomposição de calçada — U.C., via arterial", cbuq: 0, tipo: "calcada" },
-  "613265": { n: "Recomposição de lajota / paralelepípedo", cbuq: 0, tipo: "paralelo" },
+  "613286": { n: "Recomposição de calçada — U.C. (via local)", cbuq: 0, tipo: "calcada" },
+  "613284": { n: "Recomposição de calçada — U.C. (via arterial)", cbuq: 0, tipo: "calcada" },
+  "613265": { n: "Recomposição de lajota / paralelepípedo — LOG (via local)", cbuq: 0, tipo: "paralelo" },
 };
 /* tipo de pavimentação: Asfalto / Calçada / Paralelo */
 const TIPOS = {
   asfalto: { n: "Asfalto", ic: "🛣️", padrao: "613287", cor: "#1f2a1d" },
-  calcada: { n: "Calçada", ic: "🚶", padrao: "613284", cor: "#7a5a2e" },
+  calcada: { n: "Calçada", ic: "🚶", padrao: "613286", cor: "#7a5a2e" },
   paralelo: { n: "Paralelo", ic: "🧱", padrao: "613265", cor: "#8a3b2c" },
 };
 const tipoDe = T => (SERV[T?.servico] || SERV["613287"]).tipo;
@@ -13819,7 +13820,7 @@ function lerMedidasFala(txt) {
   let cod = (s.match(/\b6132\d\d\b/) || [])[0] || null;
   if (!cod) {
     const uc = /(u\.? ?c\.?|unidade consumidora|ramal|liga[cç][aã]o)/.test(s), art = /arterial/.test(s);
-    if (/cal[cç]ada/.test(s)) cod = "613284";
+    if (/cal[cç]ada/.test(s)) cod = art ? "613284" : "613286";
     else if (/(lajota|paralel|bloquete)/.test(s)) cod = "613265";
     else if (uc && art) cod = "613279"; else if (uc) cod = "613288"; else if (art) cod = "613278";
     else if (/via local|asfalto|cbuq/.test(s)) cod = "613287";
