@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 13;                       // versão da interface (sobe a cada publicação)
+const APP_V = 14;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14077,7 +14077,7 @@ function telaPainel(m) {
     <dt>Falta fazer</dt><dd class="mono">${t.triada.n + t.programada.n} OS · ${nf(pend)} t de asfalto ≈ ${Math.ceil(pend / CARGA)} carga(s) de ${CARGA} t</dd></div>
     <div class="kv" style="margin-top:4px">${(() => { const ex = all.filter(r => r._st === "executada").map(r => vida(r).ms); const ab = all.filter(r => r._st === "triada" || r._st === "programada").sort((a, b) => a.criado.em - b.criado.em); return `<dt>Tempo médio até fazer</dt><dd class="mono">${ex.length ? duracao(ex.reduce((a, b) => a + b, 0) / ex.length) : "—"}</dd><dt>Mais antiga sem fazer</dt><dd class="mono" ${ab[0] ? `data-os="${ab[0].id}" style="color:${vidaCor(ab[0])};cursor:pointer"` : ""}>${ab[0] ? `OS ${esc(ab[0].os)} · ${duracao(vida(ab[0]).ms)}` : "—"}</dd><dt>Abertas há +72 h</dt><dd class="mono">${ab.filter(r => vida(r).ms >= 72 * 36e5).length} OS</dd>`; })()}</div>
     <div class="bar"><i style="width:${pctExec}%"></i></div><div class="small muted" style="margin-top:4px">${pctExec}% das OS triadas já executadas</div>
-    ${pode("triar") ? `<div class="row" style="margin-top:12px"><button class="btn y" data-nav="triar">📷 Nova triagem</button><button class="btn" data-act="voz-rapida">🎤 Por áudio</button></div>` : ""}
+    ${pode("triar") ? `<div class="small muted" style="margin-top:12px;font-weight:700">NOVA TRIAGEM</div><div class="row" style="margin-top:6px">${Object.entries(TIPOS).map(([k, v]) => `<button class="btn ${k === "asfalto" ? "y" : ""}" data-novatri="${k}">${v.ic} ${v.n}</button>`).join("")}</div><button class="btn w" style="margin-top:8px" data-act="voz-rapida">🎤 Triagem por áudio</button>` : ""}
   </div>
   ${(() => { const dd = all.filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length); const fe = dd.filter(r => duplicatas(r).some(d => d.r._st === "executada")); return dd.length ? `<div class="card" data-ir="lista" data-st="dup" style="cursor:pointer;border-left:5px solid var(--bad)"><h2>⚠️ Possível duplicidade <span class="r">${dd.length} OS ›</span></h2><div class="small">${fe.length ? `<b style="color:var(--bad)">${fe.length} OS em local que já foi executado.</b> ` : ""}Mesmo endereço/número ou mesmo ponto de outra OS. Confira antes de programar, pra não dar viagem perdida.</div></div>` : ""; })()}
   ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<div class="row" style="margin-top:8px"><button class="btn sm y" style="flex:none" data-act="sobra">♻️ Aproveitar massa</button><span class="small muted" style="align-self:center">sobrou CBUQ? ache áreas perto</span></div></div>` : ""; })()}
@@ -14102,6 +14102,7 @@ function ultimas() {
   const nome = { triada: "triou", editada: "editou", programada: "programou", executada: "deu baixa em", conferida: "conferiu", cancelada: "cancelou", "baixa desfeita": "desfez a baixa de", "programação removida": "tirou da programação" };
   return ev.slice(0, 8).map(({ r, h }) => `<div class="achado" data-os="${r.id}"><span class="muted mono small" style="flex:none">${brHora(h.em)}</span><span><b>${esc(nomePerfil(h.por).split(" ")[0])}</b> ${nome[h.acao] || h.acao} <b>OS ${esc(r.os)}</b>${h.acao === "programada" && r.prog ? ` · eq. ${esc(r.prog.equipe)}` : ""}</span></div>`).join("") || '<div class="muted small">Nada ainda. Faça a primeira triagem.</div>';
 }
+document.addEventListener("click", e => { const b = e.target.closest("[data-novatri]"); if (b) abrirForm(null, { tipo: b.dataset.novatri }); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"); if (!b) return; const a = {}; if (b.dataset.st) a.st = b.dataset.st; if (b.dataset.q) { a.q = b.dataset.q; a.st = "ativas"; } if (b.dataset.tp) { a.tipo = b.dataset.tp; a.st = "ativas"; } ir(b.dataset.ir, a); });
 
 /* ---------- Lista / banco de dados ---------- */
@@ -14274,10 +14275,10 @@ function abrirForm(r, op = {}) {
   if (!pode("triar") && !pode("editarTodos")) return aviso("Seu perfil não faz triagem");
   $$(".sheet-bg").forEach(x => x.remove());
   const novo = !r;
-  const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: "613287", servicoConfirmado: false, entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
+  const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: op.tipo ? TIPOS[op.tipo].padrao : "613287", servicoConfirmado: !!(op.tipo && op.tipo !== "asfalto"), entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
   const FN = [];          // fotos novas (ainda não carimbadas)
   const s = folha(`
-    <h3>${novo ? "📷 Nova triagem" : "✏️ Editar OS " + esc(r.os)}</h3>
+    <h3>${novo ? `📷 Nova triagem${op.tipo ? " de " + TIPOS[op.tipo].n.toLowerCase() : ""}` : "✏️ Editar OS " + esc(r.os)}</h3>
     <div class="card" style="padding:10px 12px;margin:4px 0 8px">
       <div class="row" style="align-items:center"><b style="flex:2">📋 Colar texto da OS</b><button class="btn sm" id="fcolar" style="flex:none">Colar</button></div>
       <textarea class="in" id="ftxt" placeholder="Copie a OS do sistema ou do WhatsApp e cole aqui: o app preenche nº da OS, medidas, código e endereço" style="min-height:58px;margin-top:6px;font-size:13.5px"></textarea>
@@ -14537,7 +14538,7 @@ function abrirForm(r, op = {}) {
       const f2 = folha(`<h3>✅ OS ${esc(os)} cadastrada</h3><div class="card" style="font-size:14.5px">${esc(msg)}</div>
         <div class="row"><button class="btn" id="okz">💬 WhatsApp</button><button class="btn y" id="okn">Próxima OS ›</button></div>`);
       $("#okz", f2).onclick = () => compartilhar(msg);
-      $("#okn", f2).onclick = () => { fecharFolha(f2); abrirForm(null); };
+      $("#okn", f2).onclick = () => { fecharFolha(f2); abrirForm(null, { tipo: tipoDe(T) }); };
     } else aviso("Triagem atualizada");
   };
   desenhaTrechos(); desenhaFotos(); desenhaLoc(); checaOS();
@@ -15242,21 +15243,31 @@ $("#av").onclick = () => { if (EU && EU.id !== "tela") ir("ajustes"); };
 
 /* ---------- atualização automática da interface ---------- */
 async function checarAtualizacao(manual) {
+  const msg = t => { if (manual) aviso(t, 6000); };
   try {
-    const r = await fetch(UPD_URL + "?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw 0;
+    const r = await fetch(UPD_URL + "?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw new Error("manifesto " + r.status);
     const m = await r.json();
     if (m.app && m.app.v > APP_V) {
       if (ANDROID && window.Android.saveUi) {
-        const ra = await fetch(m.app.url + "?t=" + Date.now(), { cache: "no-store" });
-        if (ra.ok) { const html = await ra.text(); if (html.includes("Triagem OS") && html.includes("APP_V = " + m.app.v)) { window.Android.saveUi(html, m.app.v); aviso(`🔄 Nova versão ${m.app.v} instalada${m.nota ? " · " + esc(m.nota) : ""}. Reabrindo…`, 4000); setTimeout(() => location.reload(), 2200); return; } }
-      } else if (manual) aviso("Há versão nova " + m.app.v);
-    } else if (manual) aviso("✅ Você já está na versão mais nova");
+        msg(`⬇️ Baixando a versão ${m.app.v}…`);
+        const urls = [m.app.url_v, m.app.url].filter(Boolean);       // arquivo com o número da versão primeiro (não pega cópia velha)
+        for (const u of urls) {
+          const ra = await fetch(u + "?t=" + Date.now(), { cache: "no-store" }); if (!ra.ok) continue;
+          const html = await ra.text();
+          if (html.includes("Triagem OS") && html.includes("APP_V = " + m.app.v + ";")) {
+            window.Android.saveUi(html, m.app.v);
+            aviso(`🔄 Nova versão ${m.app.v} instalada${m.nota ? " · " + esc(m.nota) : ""}. Reabrindo…`, 4000); setTimeout(() => location.reload(), 2200); return;
+          }
+        }
+        msg("A versão nova ainda está chegando no servidor. Tente de novo em 5 minutos.");
+      } else msg("Há versão nova " + m.app.v);
+    } else msg(`✅ Você já está na versão mais nova (interface ${APP_V})`);
     const apk = ANDROID && window.Android.apkVersion ? window.Android.apkVersion() : 0;
     if (m.apk && apk && m.apk.v > apk && !$(".apkbar")) {
       const d = document.createElement("div"); d.className = "card apkbar"; d.innerHTML = `<b>📲 Nova versão do aplicativo</b><div class="small">${esc(m.apk.nota || "Precisa instalar de novo só desta vez.")}</div><a class="btn y w" style="margin-top:8px" href="${esc(m.apk.url || RELEASES)}">Baixar</a>`;
       $("#main").prepend(d);
     }
-  } catch (e) { if (manual) aviso("Sem internet para procurar atualização"); }
+  } catch (e) { msg("Não consegui procurar atualização: " + (e.message || "sem internet")); }
 }
 
 /* ---------- início ---------- */
