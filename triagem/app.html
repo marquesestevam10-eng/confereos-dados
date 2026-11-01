@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 18;                       // versão da interface (sobe a cada publicação)
+const APP_V = 19;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -15294,12 +15294,14 @@ function telaAjustes(m) {
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
+  ${privado() ? `<div class="card"><h2>⚠️ Duplicidade</h2><div class="small muted">Se você conferiu e as OS estão certas, zere os alertas de agora. As OS novas continuam sendo verificadas.</div><button class="btn w" style="margin-top:10px" id="ajzerodup">✔ Zerar alertas de duplicidade</button></div>` : ""}
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
   const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
+  const zd = $("#ajzerodup"); if (zd) zd.onclick = () => { if (confirm("Zerar todos os alertas de duplicidade de agora?")) zerarDuplicidades(true); };
   $("#ajsync").onclick = () => { SYNC.etag = null; sincronizar(true).then(render); };
   $("#ajupd").onclick = () => checarAtualizacao(true);
   $("#ajexp").onclick = () => baixar(`TriagemOS_backup_${brDia(isoDia()).replace(/\//g, "-")}.json`, new Blob([JSON.stringify({ app: "TriagemOS", gerado: new Date().toISOString(), por: EU.nome, os: [...OS.values()].map(limpo) }, null, 1)], { type: "application/json" }), "application/json");
@@ -15336,8 +15338,21 @@ async function checarAtualizacao(manual) {
   } catch (e) { msg("Não consegui procurar atualização: " + (e.message || "sem internet")); }
 }
 
+/* zera os alertas de duplicidade que existem hoje (o Estevam conferiu: não são duplicidade). OS novas continuam sendo verificadas. */
+async function zerarDuplicidades(manual) {
+  const mexer = new Map();
+  for (const r of OS.values()) {
+    if (r._st === "cancelada") continue;
+    const d = duplicatas(r); if (!d.length) continue;
+    for (const x of d) { for (const [a, b] of [[r, x.r], [x.r, r]]) { const m = mexer.get(a.id) || new Set(a.tri.naoDup || []); m.add(b.id); mexer.set(a.id, m); } }
+  }
+  for (const [id, set] of mexer) { const r = OS.get(id); r.tri.naoDup = [...set]; r.tri.upd = Date.now(); await salvarOS(r, "editada", "alerta de duplicidade zerado (conferido)"); }
+  if (manual || mexer.size) aviso(mexer.size ? `✅ Alertas de duplicidade zerados em ${mexer.size} OS` : "✅ Não há alertas de duplicidade", 5000);
+  render();
+}
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
+  if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
   setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
 }
