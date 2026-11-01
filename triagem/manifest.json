@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 22,
+  "v": 23,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-22.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-23.html"
  },
  "apk": {
-  "v": 6,
+  "v": 7,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "OS 3502780 duplicada: fica 1 registro",
+ "nota": "Servidor ligado: sobe as OS do modo local",
  "data": "01/11/2026"
 }

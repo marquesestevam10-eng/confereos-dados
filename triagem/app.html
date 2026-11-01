@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 22;                       // versão da interface (sobe a cada publicação)
+const APP_V = 23;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13524,6 +13524,19 @@ async function puxar(forcar) {
 }
 function localMaisNovo(loc, rem) { return SECOES.some(k => (loc[k]?.upd || 0) > (rem[k]?.upd || 0)) || (loc.hist || []).length > (rem.hist || []).length; }
 function NOMES_LOCAL() { return EU && EU.nomeProprio ? { [EU.id]: EU.nome } : {}; }
+
+/* 1ª vez com servidor: sobe tudo que foi feito no modo local (OS, fotos e relatórios gravados) */
+async function subirLocal() {
+  if (!temServidor() || await kvGet("subiuLocal1")) return;
+  let n = 0;
+  for (const r of OS.values()) {
+    for (const f of [...(r.tri?.fotos || []), ...(r.exec?.fotos || [])]) if (f && f.p && await fotoGet(f.p)) enfileirar({ t: "foto", p: f.p });
+    enfileirar({ t: "os", id: r.id }); n++;
+  }
+  try { for (const g of await relAll()) enfileirar({ t: "rel", id: g.id }); } catch (e) {}
+  await kvSet("subiuLocal1", 1);
+  if (n) aviso(`☁️ Servidor ligado: subindo ${n} OS deste celular`, 6000);
+}
 
 async function enviarFila() {
   // fotos primeiro, depois as OS (a OS só aparece para os outros quando as fotos já estão lá)
@@ -15426,6 +15439,7 @@ async function limparDuplicada3502780() {
 }
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
+  if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
