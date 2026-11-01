@@ -1,8 +1,13 @@
 {
- "v": 1,
- "data": "30/10/2026",
- "dados": "d-ba42fa172190.bin",
- "nota": "Base inicial",
- "fotos": {},
- "mapas": {}
+ "v": 2,
+ "data": "01/11/2026",
+ "dados": "d-6b93759cc75f.bin",
+ "nota": "Triagens do Triagem OS: 17 OS",
+ "fotos": {
+  "28": "f-28-447a0f9812.bin",
+  "29": "f-29-58b1a04953.bin"
+ },
+ "mapas": {
+  "29": "m-29-b88eae081f.bin"
+ }
 }
