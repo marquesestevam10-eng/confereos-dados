@@ -13259,7 +13259,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 8;                       // versão da interface (sobe a cada publicação)
+const APP_V = 9;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13617,10 +13617,19 @@ async function processarFoto(file, agora) {
   const ex = lerExif(buf);
   let lat = null, lng = null, origem = "sem", acc = null;
   // vale SEMPRE a coordenada gravada na foto; GPS do celular só para foto tirada agora pela câmera
+  if (!ex.gps) { const x = lerXmpGps(buf); if (x) ex.gps = x; }
+  let carimbo = null;
   if (ex.gps) { [lat, lng] = ex.gps; origem = "foto"; }
-  else if (agora) { const g = await gpsAgora(); if (g) { lat = g.lat; lng = g.lng; acc = g.acc; origem = "gps"; } }
   const url = URL.createObjectURL(file);
   const img = await carregarImg(url);
+  if (!ex.gps || !ex.em) {                       // sem GPS/data no arquivo: lê o que está ESCRITO na foto (carimbo)
+    const kk = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight)), oc = document.createElement("canvas");
+    oc.width = Math.round(img.naturalWidth * kk); oc.height = Math.round(img.naturalHeight * kk); oc.getContext("2d").drawImage(img, 0, 0, oc.width, oc.height);
+    carimbo = lerCarimbo(await ocrFoto(await new Promise(ok => oc.toBlob(ok, "image/jpeg", 0.92))));
+    if (carimbo && carimbo.lat != null && !ex.gps) { lat = carimbo.lat; lng = carimbo.lng; origem = "carimbo"; }
+    if (carimbo && carimbo.em && !ex.em) { ex.em = carimbo.em; ex.emCarimbo = 1; }
+  }
+  if (lat == null && agora) { const g = await gpsAgora(); if (g) { lat = g.lat; lng = g.lng; acc = g.acc; origem = "gps"; } }
   const M = 1600, k = Math.min(1, M / Math.max(img.naturalWidth, img.naturalHeight));
   const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
   cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
@@ -13630,7 +13639,7 @@ async function processarFoto(file, agora) {
   const brilho = Math.round(L / (px.length / 4));
   const base = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.85));
   // data da triagem = data em que a foto foi tirada (EXIF); sem EXIF, data do arquivo (menos confiável)
-  return { base, lat, lng, acc, origem, em: ex.em || file.lastModified || Date.now(), dtFonte: ex.em ? "foto" : (file.lastModified ? "arquivo" : "agora"), brilho, w: cv.width, h: cv.height };
+  return { base, lat, lng, acc, origem, em: ex.em || file.lastModified || Date.now(), dtFonte: ex.emCarimbo ? "carimbo" : ex.em ? "foto" : (file.lastModified ? "arquivo" : "agora"), carimbo, brilho, w: cv.width, h: cv.height };
 }
 
 /* carimbo na foto: OS, data/hora, coordenada e endereço */
@@ -13642,14 +13651,15 @@ async function carimbar(f, info) {
   const linhas = [
     `OS ${info.os || "—"}  ·  ${brDia(isoDia(new Date(f.em)))} ${hora(f.em)}`,
     info.end || "Endereço a confirmar",
-    f.lat != null ? `${f.lat.toFixed(6)}, ${f.lng.toFixed(6)}  (${f.origem === "foto" ? "GPS da foto" : f.origem === "gps" ? "GPS do celular" + (f.acc ? " ±" + f.acc + " m" : "") : "manual"})` : "Sem coordenada",
+    f.lat != null ? `${f.lat.toFixed(6)}, ${f.lng.toFixed(6)}  (${f.origem === "foto" ? "GPS da foto" : f.origem === "carimbo" ? "carimbo da foto" : f.origem === "gps" ? "GPS do celular" + (f.acc ? " ±" + f.acc + " m" : "") : "manual"})` : "Sem coordenada",
     `Triagem OS · ${info.por || ""}`,
   ];
   const lh = fs * 1.32, h = lh * linhas.length + fs * 0.9;
-  x.fillStyle = "rgba(15,20,14,.72)"; x.fillRect(0, cv.height - h, W, h);
-  x.fillStyle = "#f2b705"; x.fillRect(0, cv.height - h, Math.max(6, fs * 0.3), h);
+  const y0 = f.carimbo && f.carimbo.texto ? 0 : cv.height - h;     // foto já carimbada: o nosso vai em cima, sem tapar o original
+  x.fillStyle = "rgba(15,20,14,.72)"; x.fillRect(0, y0, W, h);
+  x.fillStyle = "#f2b705"; x.fillRect(0, y0, Math.max(6, fs * 0.3), h);
   x.textBaseline = "top";
-  linhas.forEach((l, i) => { x.font = `${i === 0 ? "700 " : ""}${fs}px Roboto, Arial, sans-serif`; x.fillStyle = i === 0 ? "#f2b705" : "#fff"; x.fillText(l, fs * 0.9, cv.height - h + fs * 0.45 + i * lh, W - fs * 1.4); });
+  linhas.forEach((l, i) => { x.font = `${i === 0 ? "700 " : ""}${fs}px Roboto, Arial, sans-serif`; x.fillStyle = i === 0 ? "#f2b705" : "#fff"; x.fillText(l, fs * 0.9, y0 + fs * 0.45 + i * lh, W - fs * 1.4); });
   return new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.8));
 }
 
@@ -13828,6 +13838,67 @@ function lerTextoOS(txt) {
   if (/sem\s+(remo[cç][aã]o|entulho)/i.test(s)) out.entulho = false; else if (/remo[cç][aã]o\s+de\s+entulho|com\s+entulho/i.test(s)) out.entulho = true;
   if (!out.servico) { const v = lerMedidasFala(s); if (v.servico) out.servico = v.servico; }
   return out;
+}
+
+/* ---------- coordenada/data escritas NA foto (carimbo de app tipo GPS Map Camera / Timestamp) ---------- */
+function ocrFoto(blob) {
+  return new Promise(async ok => {
+    if (!(ANDROID && window.Android.ocr)) return ok(null);
+    const id = uid(); const fila = window.__ocrFila = window.__ocrFila || {};
+    fila[id] = ok; window.__ocr = (i, t) => { const f = fila[i]; delete fila[i]; if (f) f(t); };
+    setTimeout(() => { if (fila[id]) { delete fila[id]; ok(null); } }, 20000);
+    try { window.Android.ocr(id, await blobB64(blob)); } catch (e) { delete fila[id]; ok(null); }
+  });
+}
+function lerCarimbo(txt) {
+  if (!txt) return null;
+  const t = " " + txt.replace(/\r/g, "").replace(/[“”″]/g, '"').replace(/[’′‘]/g, "'").replace(/º|˚/g, "°") + " ";
+  const out = { texto: txt };
+  const nr = v => +String(v).replace(",", ".");
+  let lat = null, lng = null;
+  // 1) "Lat -10.911345°  Long -37.051234°" / "Latitude: 10,9113 S"
+  const la = t.match(/lat(?:itude)?\.?\s*[:=]?\s*(-?\d{1,2}[.,]\d{3,})\s*°?\s*([NS])?/i);
+  const lo = t.match(/lon(?:g|gitude)?\.?\s*[:=]?\s*(-?\d{1,3}[.,]\d{3,})\s*°?\s*([WOEL])?/i);
+  if (la && lo) { lat = nr(la[1]) * (la[2] === "S" ? -1 : 1); lng = nr(lo[1]) * (/[WO]/.test(lo[2] || "") ? -1 : 1); }
+  // 2) graus/minutos/segundos: 10°54'40.8"S 37°03'04.4"W (ou S 10°54'40.8")
+  if (lat == null) {
+    const dms = [...t.matchAll(/([NSWOEL])?\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:[.,]\d+)?)?\s*"?\s*([NSWOEL])?/g)];
+    if (dms.length >= 2) {
+      const v = m => (+m[2] + +m[3] / 60 + nr(m[4] || 0) / 3600) * (/[SWO]/.test((m[1] || "") + (m[5] || "")) ? -1 : 1);
+      lat = v(dms[0]); lng = v(dms[1]);
+    }
+  }
+  // 3) par solto "-10.911345, -37.051234"
+  if (lat == null) { const p = t.match(/(-?\d{1,2}[.,]\d{4,})\s*°?\s*[,;\/ ]\s*(-?\d{1,3}[.,]\d{4,})/); if (p) { lat = nr(p[1]); lng = nr(p[2]); } }
+  if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+    // Sergipe fica no hemisfério sul/oeste: o OCR às vezes perde o sinal de menos
+    if (lat > 0 && lat < 15 && lng > 30 && lng < 45) { lat = -lat; lng = -lng; }
+    else if (lat > 0 && lat < 15 && lng < 0) lat = -lat;
+    else if (lat < 0 && lng > 30 && lng < 45) lng = -lng;
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng)) { out.lat = +lat.toFixed(6); out.lng = +lng.toFixed(6); }
+  }
+  // data e hora
+  const d1 = t.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
+  const d2 = t.match(/(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
+  let y, mo, d, h, mi, se, ap;
+  if (d1) [, d, mo, y, h, mi, se, ap] = d1; else if (d2) [, y, mo, d, h, mi, se, ap] = d2;
+  if (y) { h = +h; if (ap && /pm/i.test(ap) && h < 12) h += 12; if (ap && /am/i.test(ap) && h === 12) h = 0;
+    const dt = new Date(+y, +mo - 1, +d, h, +mi, +(se || 0)); if (!isNaN(dt) && +y > 2015) out.em = dt.getTime(); }
+  // endereço impresso (linha com rua/avenida)
+  const lin = txt.split(/\n/).map(x => x.trim()).filter(Boolean);
+  const ru = lin.find(l => /^(r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto)\s/i.test(l) || /,\s*\d+\s*[-–]/.test(l));
+  if (ru) { out.endTxt = ru; const n = ru.match(/,\s*(\d+[a-zA-Z]?)\b/); if (n) out.num = n[1]; }
+  return out;
+}
+/* GPS escrito em XMP (alguns apps gravam só aí) */
+function lerXmpGps(u8) {
+  try {
+    const s = new TextDecoder("latin1").decode(u8.subarray(0, Math.min(u8.length, 262144)));
+    const g = k => { const m = s.match(new RegExp(k + '\\s*=\\s*"([^"]+)"')) || s.match(new RegExp("<" + k + ">([^<]+)<")); return m ? m[1] : null; };
+    const conv = v => { if (!v) return null; const m = v.match(/^(\d+),(\d+(?:\.\d+)?)([NSEW])$/); if (m) return (+m[1] + +m[2] / 60) * (/[SW]/.test(m[3]) ? -1 : 1); const x = parseFloat(v); return isFinite(x) ? x : null; };
+    const la = conv(g("exif:GPSLatitude")), lo = conv(g("exif:GPSLongitude"));
+    return la != null && lo != null ? [+la.toFixed(6), +lo.toFixed(6)] : null;
+  } catch (e) { return null; }
 }
 
 /* ================= Telas ================= */
@@ -14011,7 +14082,7 @@ async function abrirOS(id) {
       ${ativa(r.exec) ? `<dt>Execução</dt><dd>${brDia(r.exec.data)} · eq. ${esc(r.exec.equipe || r.prog?.equipe || "—")} · <span class="mono">${nf(num(r.exec.area))} m² · ${nf(num(r.exec.massa))} t</span>${r.exec.obs ? "<br>" + esc(r.exec.obs) : ""}</dd>` : ""}
       ${ativa(r.conf) ? `<dt>Conferência</dt><dd>${r.conf.ok ? "✔ Conferida" : "⚠ Com divergência"} · ${esc(nomePerfil(r.conf.por))}${r.conf.obs ? "<br>" + esc(r.conf.obs) : ""}</dd>` : ""}
     </dl></div>
-    <div class="fotos" id="dfotos">${[...(T.fotos || []), ...((ativa(r.exec) && r.exec.fotos) || [])].map(f => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.depois ? "DEPOIS" : f.origem === "foto" ? "GPS foto" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span></div>`).join("")}</div>
+    <div class="fotos" id="dfotos">${[...(T.fotos || []), ...((ativa(r.exec) && r.exec.fotos) || [])].map(f => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.depois ? "DEPOIS" : f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span></div>`).join("")}</div>
     <div style="margin-top:10px">${T.lat != null ? `<a class="maplink" href="${navUrl(T.lat, T.lng)}"><img class="minimap" id="dmap" alt="Mini-mapa"><span>🧭 Toque para navegar no Google Maps</span></a>` : ""}</div>
     <div class="row" style="margin-top:12px">
       ${T.lat != null ? `<a class="btn bl" href="${navUrl(T.lat, T.lng)}">🧭 Navegar</a>` : ""}
@@ -14273,7 +14344,7 @@ function abrirForm(r, op = {}) {
   // ---- fotos e localização
   let LOC = T.lat != null ? { lat: T.lat, lng: T.lng, origem: T.origemCoord || "foto", acc: T.precisao } : null;
   function desenhaLoc() {
-    $("#floc", s).innerHTML = LOC ? `<div class="c">${LOC.lat.toFixed(6)}, ${LOC.lng.toFixed(6)}</div><div class="small muted">${LOC.origem === "foto" ? "GPS gravado na foto" : LOC.origem === "gps" ? "GPS do celular" + (LOC.acc ? ` (±${LOC.acc} m)` : "") : "digitada"} · <a href="${navUrl(LOC.lat, LOC.lng)}">🧭 navegar até aqui</a></div><a href="${navUrl(LOC.lat, LOC.lng)}" class="maplink"><img class="minimap" id="fmini" style="margin-top:8px" alt=""><span>🧭 Toque para navegar no Google Maps</span></a>`
+    $("#floc", s).innerHTML = LOC ? `<div class="c">${LOC.lat.toFixed(6)}, ${LOC.lng.toFixed(6)}</div><div class="small muted">${LOC.origem === "foto" ? "GPS gravado na foto" : LOC.origem === "carimbo" ? "lida do carimbo da foto" : LOC.origem === "gps" ? "GPS do celular" + (LOC.acc ? ` (±${LOC.acc} m)` : "") : "digitada"} · <a href="${navUrl(LOC.lat, LOC.lng)}">🧭 navegar até aqui</a></div><a href="${navUrl(LOC.lat, LOC.lng)}" class="maplink"><img class="minimap" id="fmini" style="margin-top:8px" alt=""><span>🧭 Toque para navegar no Google Maps</span></a>`
       : `<div class="small muted">Sem coordenada ainda. Tire a foto no local ou toque em “Usar meu GPS agora”.</div>`;
     if (LOC) miniMapa(LOC.lat, LOC.lng, "OS " + ($("#fos", s).value || "?")).then(u => { const i = $("#fmini", s); if (u && i) i.src = u; });
   }
@@ -14286,7 +14357,7 @@ function abrirForm(r, op = {}) {
       if (e) {
         const pf = (id, v) => { if (sobrescrever || !$("#" + id, s).value) $("#" + id, s).value = v || ""; };
         pf("frua", e.rua); pf("fnum", e.num); pf("fbai", e.bairro); if (e.mun || sobrescrever) $("#fmun", s).value = e.mun || "";
-        aviso("📍 " + (l.origem === "foto" ? "Endereço pela coordenada da foto: " : "") + esc([e.rua, e.bairro, e.mun].filter(Boolean).join(", ")));
+        aviso("📍 " + (l.origem === "foto" || l.origem === "carimbo" ? "Endereço pela coordenada da foto: " : "") + esc([e.rua, e.bairro, e.mun].filter(Boolean).join(", ")));
       }
       else aviso("Sem endereço para essa coordenada: preencha a rua.");
     }
@@ -14294,8 +14365,8 @@ function abrirForm(r, op = {}) {
   }
   function desenhaFotos() {
     const box = $("#ffotos", s);
-    box.innerHTML = T.fotos.map((f, i) => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.origem === "foto" ? "GPS foto" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span><button class="x" data-fx="${i}">✕</button></div>`).join("") +
-      FN.map((f, i) => `<div class="foto ${f.busy ? "busy" : ""}">${f.base ? `<img src="${f.url}">` : ""}<span class="g">${f.busy ? "" : f.origem === "foto" ? "GPS foto" : f.origem === "gps" ? "GPS cel." : "sem GPS"}${f.brilho != null && f.brilho < 60 ? " · escura" : ""}</span>${f.busy ? "" : `<button class="x" data-fn="${i}">✕</button>`}</div>`).join("");
+    box.innerHTML = T.fotos.map((f, i) => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span><button class="x" data-fx="${i}">✕</button></div>`).join("") +
+      FN.map((f, i) => `<div class="foto ${f.busy ? "busy" : ""}">${f.base ? `<img src="${f.url}">` : ""}<span class="g">${f.busy ? "" : f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "gps" ? "GPS cel." : "sem GPS"}${f.brilho != null && f.brilho < 60 ? " · escura" : ""}</span>${f.busy ? "" : `<button class="x" data-fn="${i}">✕</button>`}</div>`).join("");
     $$("img[data-full]", box).forEach(i => fotoURL(i.dataset.full).then(u => { if (u) i.src = u; }));
   }
   s.addEventListener("click", e => {
@@ -14309,15 +14380,16 @@ function abrirForm(r, op = {}) {
       f.busy = 0; desenhaFotos(); dataPelaFoto();
       if (f.lat != null) {
         // a coordenada gravada na foto manda: substitui GPS do celular/digitada e refaz o endereço por ela
-        if (!LOC || (f.origem === "foto" && LOC.origem !== "foto")) await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc }, true, !!LOC || f.origem === "foto");
+        const daFoto = o => o === "foto" || o === "carimbo";
+        if (!LOC || (daFoto(f.origem) && !daFoto(LOC.origem))) { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc }, true, !!LOC || daFoto(f.origem)); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
         else if (distM([LOC.lat, LOC.lng], [f.lat, f.lng]) > 150) aviso(`⚠ Essa foto está a ${Math.round(distM([LOC.lat, LOC.lng], [f.lat, f.lng]))} m do ponto da OS`);
-      } else if (!agora) aviso("📷 Essa foto não tem coordenada gravada (foto que passou pelo WhatsApp perde o GPS). Use a foto original da galeria.", 6000);
+      } else if (!agora) aviso("📷 Não achei coordenada nessa foto: nem gravada no arquivo, nem escrita no carimbo. Confira se o carimbo mostra Lat/Long ou use “Digitar coordenada”.", 7000);
     }
   }
   /* a data da triagem é a da foto (tirou dia 30, cadastrou dia 1º → fica dia 30) */
   function emDasFotos() {
     const fs = [...(T.fotos || []), ...FN.filter(f => !f.busy)];
-    const boas = fs.filter(f => f.em && (f.dtFonte === "foto" || f.dtFonte == null)), todas = fs.filter(f => f.em);
+    const boas = fs.filter(f => f.em && (f.dtFonte === "foto" || f.dtFonte === "carimbo" || f.dtFonte == null)), todas = fs.filter(f => f.em);
     const l = boas.length ? boas : todas; if (!l.length) return null;
     return { em: Math.min(...l.map(f => f.em)), certa: !!boas.length };
   }
@@ -14361,7 +14433,7 @@ function abrirForm(r, op = {}) {
       const f = FN[i]; const p = `fotos/${rec.id}/${Date.now().toString(36)}-${i}.jpg`;
       if (f.lat == null && LOC) { f.lat = LOC.lat; f.lng = LOC.lng; f.origem = LOC.origem; }
       await fotoSet(p, await carimbar(f, { os, end: endC, por: EU.nome }));
-      T.fotos.push({ p, lat: f.lat, lng: f.lng, origem: f.origem, em: f.em, dtFonte: f.dtFonte, brilho: f.brilho });
+      T.fotos.push({ p, lat: f.lat, lng: f.lng, origem: f.origem, em: f.em, dtFonte: f.dtFonte, brilho: f.brilho, carimbo: f.carimbo ? f.carimbo.texto.slice(0, 300) : undefined });
       enfileirar({ t: "foto", p });
     }
     { const d = emDasFotos(); if (d) T.emFoto = d.em; }
