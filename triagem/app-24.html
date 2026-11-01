@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 21;                       // versão da interface (sobe a cada publicação)
+const APP_V = 24;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13524,6 +13524,19 @@ async function puxar(forcar) {
 }
 function localMaisNovo(loc, rem) { return SECOES.some(k => (loc[k]?.upd || 0) > (rem[k]?.upd || 0)) || (loc.hist || []).length > (rem.hist || []).length; }
 function NOMES_LOCAL() { return EU && EU.nomeProprio ? { [EU.id]: EU.nome } : {}; }
+
+/* 1ª vez com servidor: sobe tudo que foi feito no modo local (OS, fotos e relatórios gravados) */
+async function subirLocal() {
+  if (!temServidor() || await kvGet("subiuLocal1")) return;
+  let n = 0;
+  for (const r of OS.values()) {
+    for (const f of [...(r.tri?.fotos || []), ...(r.exec?.fotos || [])]) if (f && f.p && await fotoGet(f.p)) enfileirar({ t: "foto", p: f.p });
+    enfileirar({ t: "os", id: r.id }); n++;
+  }
+  try { for (const g of await relAll()) enfileirar({ t: "rel", id: g.id }); } catch (e) {}
+  await kvSet("subiuLocal1", 1);
+  if (n) aviso(`☁️ Servidor ligado: subindo ${n} OS deste celular`, 6000);
+}
 
 async function enviarFila() {
   // fotos primeiro, depois as OS (a OS só aparece para os outros quando as fotos já estão lá)
@@ -15330,14 +15343,24 @@ function telaPerfil(primeira) {
     const c = e.target.closest("[data-pf]"); if (!c) return; esc_ = c.dataset.pf;
     $$("[data-pf]", m).forEach(x => x.classList.toggle("on", x === c)); $("#pfok").disabled = false;
     const p = PERFIS.find(x => x.id === esc_);
-    $("#pfnome").innerHTML = p.editaNome ? `<label class="f">Seu nome</label><input class="in" id="pfn" value="${esc(NOMES[p.id] || "")}" placeholder="${esc(p.nome)}">` : "";
+    $("#pfnome").innerHTML = (p.editaNome ? `<label class="f">Seu nome</label><input class="in" id="pfn" value="${esc(NOMES[p.id] || "")}" placeholder="${esc(p.nome)}">` : "") +
+      (precisaPin(p.id) ? `<label class="f">🔒 PIN do perfil</label><input class="in mono" id="pfpin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••"><div class="small muted" id="pfpinerr"></div>` : "");
   };
   $("#pfok").onclick = async () => {
     const p = PERFIS.find(x => x.id === esc_); const n = $("#pfn")?.value.trim();
+    if (precisaPin(p.id) && !(await pinOk($("#pfpin")?.value))) { const e = $("#pfpinerr"); if (e) e.innerHTML = '<span style="color:#b3261e">PIN errado.</span>'; $("#pfpin").value = ""; $("#pfpin").focus(); return; }
     EU = Object.assign({}, p, { nome: n || NOMES[p.id] || p.nome, nomeProprio: !!n });
     if (n && NOMES[p.id] !== n) { NOMES[p.id] = n; await kvSet("nomes", NOMES); enfileirar({ t: "nomes", p: "equipe.json" }); }
     await kvSet("perfil", { id: EU.id, nome: EU.nome }); m.onclick = null; VIEW = "painel"; render(); autoMapas();
   };
+}
+/* PIN só no perfil do Estevam (agentes são privados). Guardado só o hash. Quem já está no perfil não precisa digitar de novo. */
+const PIN_H = "dcc84ab2813b025bf1657d26ce3ba41a6db5010723addf57e17be16b1c17d63d";
+const precisaPin = id => id === "estevam" && EU?.id !== "estevam";
+async function pinOk(v) {
+  v = String(v || "").replace(/\D/g, ""); if (!v) return false;
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("triagemos-pin:" + v));
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("") === PIN_H;
 }
 function telaAjustes(m) {
   const n = OS.size;
@@ -15405,9 +15428,30 @@ async function zerarDuplicidades(manual) {
   if (manual || mexer.size) aviso(mexer.size ? `✅ Alertas de duplicidade zerados em ${mexer.size} OS` : "✅ Não há alertas de duplicidade", 5000);
   render();
 }
+/* 01/11/2026: OS 3502780 cadastrada 2x (mesmo local, 14:14 e 14:18) — fica 1 registro, a outra vira cancelada (não some) */
+async function limparDuplicada3502780() {
+  const l = [...OS.values()].filter(r => String(r.os).replace(/\D/g, "") === "3502780" && r._st !== "cancelada").sort((a, b) => (a.criado?.em || 0) - (b.criado?.em || 0));
+  if (l.length < 2) return false;
+  const fica = l.find(r => r.tri.servico === "613288") || l[0];
+  for (const r of l) {
+    if (r === fica) continue;
+    if (!pontoConfiavel(fica) && r.tri.lat != null && (r.tri.origemCoord === "gps" || pontoConfiavel(r))) {
+      fica.tri.lat = r.tri.lat; fica.tri.lng = r.tri.lng; fica.tri.origemCoord = "manual"; fica.tri.geoPeloEnd = 1; fica.tri.geoAprox = false;
+    }
+    r.canc = { motivo: "Duplicada: mesma OS cadastrada 2x no mesmo local (ficou só um registro)", por: EU ? EU.id : "estevam", em: Date.now(), upd: Date.now() };
+    await salvarOS(r, "cancelada", r.canc.motivo);
+  }
+  const e = fica.tri.end || (fica.tri.end = {});
+  if (!e.rua) { e.rua = "Avenida Contorno"; e.num = e.num || "29"; }
+  if (!e.mun) e.mun = "Laranjeiras";
+  fica.tri.upd = Date.now(); await salvarOS(fica, "editada", "juntada com o cadastro duplicado");
+  return true;
+}
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
+  if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
+  if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
   setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
 }

@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 23;                       // versão da interface (sobe a cada publicação)
+const APP_V = 24;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -15343,14 +15343,24 @@ function telaPerfil(primeira) {
     const c = e.target.closest("[data-pf]"); if (!c) return; esc_ = c.dataset.pf;
     $$("[data-pf]", m).forEach(x => x.classList.toggle("on", x === c)); $("#pfok").disabled = false;
     const p = PERFIS.find(x => x.id === esc_);
-    $("#pfnome").innerHTML = p.editaNome ? `<label class="f">Seu nome</label><input class="in" id="pfn" value="${esc(NOMES[p.id] || "")}" placeholder="${esc(p.nome)}">` : "";
+    $("#pfnome").innerHTML = (p.editaNome ? `<label class="f">Seu nome</label><input class="in" id="pfn" value="${esc(NOMES[p.id] || "")}" placeholder="${esc(p.nome)}">` : "") +
+      (precisaPin(p.id) ? `<label class="f">🔒 PIN do perfil</label><input class="in mono" id="pfpin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••"><div class="small muted" id="pfpinerr"></div>` : "");
   };
   $("#pfok").onclick = async () => {
     const p = PERFIS.find(x => x.id === esc_); const n = $("#pfn")?.value.trim();
+    if (precisaPin(p.id) && !(await pinOk($("#pfpin")?.value))) { const e = $("#pfpinerr"); if (e) e.innerHTML = '<span style="color:#b3261e">PIN errado.</span>'; $("#pfpin").value = ""; $("#pfpin").focus(); return; }
     EU = Object.assign({}, p, { nome: n || NOMES[p.id] || p.nome, nomeProprio: !!n });
     if (n && NOMES[p.id] !== n) { NOMES[p.id] = n; await kvSet("nomes", NOMES); enfileirar({ t: "nomes", p: "equipe.json" }); }
     await kvSet("perfil", { id: EU.id, nome: EU.nome }); m.onclick = null; VIEW = "painel"; render(); autoMapas();
   };
+}
+/* PIN só no perfil do Estevam (agentes são privados). Guardado só o hash. Quem já está no perfil não precisa digitar de novo. */
+const PIN_H = "dcc84ab2813b025bf1657d26ce3ba41a6db5010723addf57e17be16b1c17d63d";
+const precisaPin = id => id === "estevam" && EU?.id !== "estevam";
+async function pinOk(v) {
+  v = String(v || "").replace(/\D/g, ""); if (!v) return false;
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("triagemos-pin:" + v));
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("") === PIN_H;
 }
 function telaAjustes(m) {
   const n = OS.size;
