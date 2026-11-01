@@ -1,6 +1,6 @@
 {
  "app": {
-  "v": 10,
+  "v": 11,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html"
  },
  "apk": {
@@ -8,6 +8,6 @@
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Leitor de carimbo e mapa corrigidos",
+ "nota": "Localiza pelo endereço escrito na foto",
  "data": "01/11/2026"
 }

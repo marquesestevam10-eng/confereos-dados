@@ -13259,7 +13259,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 10;                       // versão da interface (sobe a cada publicação)
+const APP_V = 11;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13635,6 +13635,11 @@ async function processarFoto(file, agora) {
     if (carimbo && carimbo.lat != null && !ex.gps) { lat = carimbo.lat; lng = carimbo.lng; origem = "carimbo"; }
     if (carimbo && carimbo.em && !ex.em) { ex.em = carimbo.em; ex.emCarimbo = 1; }
   }
+  // sem coordenada nenhuma, mas com endereço escrito na foto → acha o ponto pelo endereço
+  if (lat == null && carimbo && carimbo.endTxt) {
+    const g = await coordPeloEnderecoDaFoto(carimbo);
+    if (g) { lat = g.lat; lng = g.lng; origem = "endereco"; carimbo.geo = g; }
+  }
   if (lat == null && agora) { const g = await gpsAgora(); if (g) { lat = g.lat; lng = g.lng; acc = g.acc; origem = "gps"; } }
   const M = 1600, k = Math.min(1, M / Math.max(img.naturalWidth, img.naturalHeight));
   const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
@@ -13657,7 +13662,7 @@ async function carimbar(f, info) {
   const linhas = [
     `OS ${info.os || "—"}  ·  ${brDia(isoDia(new Date(f.em)))} ${hora(f.em)}`,
     info.end || "Endereço a confirmar",
-    f.lat != null ? `${f.lat.toFixed(6)}, ${f.lng.toFixed(6)}  (${f.origem === "foto" ? "GPS da foto" : f.origem === "carimbo" ? "carimbo da foto" : f.origem === "gps" ? "GPS do celular" + (f.acc ? " ±" + f.acc + " m" : "") : "manual"})` : "Sem coordenada",
+    f.lat != null ? `${f.lat.toFixed(6)}, ${f.lng.toFixed(6)}  (${f.origem === "foto" ? "GPS da foto" : f.origem === "carimbo" ? "carimbo da foto" : f.origem === "endereco" ? "pelo endereço da foto" : f.origem === "gps" ? "GPS do celular" + (f.acc ? " ±" + f.acc + " m" : "") : "manual"})` : "Sem coordenada",
     `Triagem OS · ${info.por || ""}`,
   ];
   const lh = fs * 1.32, h = lh * linhas.length + fs * 0.9;
@@ -13895,12 +13900,44 @@ function lerCarimbo(txt) {
   if (d1) [, d, mo, y, h, mi, se, ap] = d1; else if (d2) [, y, mo, d, h, mi, se, ap] = d2;
   if (y) { h = +h; if (ap && /pm/i.test(ap) && h < 12) h += 12; if (ap && /am/i.test(ap) && h === 12) h = 0;
     const dt = new Date(+y, +mo - 1, +d, h, +mi, +(se || 0)); if (!isNaN(dt) && +y > 2015) out.em = dt.getTime(); }
-  // endereço impresso (linha com rua/avenida)
-  const lin = txt.split(/\n/).map(x => x.trim()).filter(Boolean);
-  const ru = lin.find(l => /^(r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto)\s/i.test(l) || /,\s*\d+\s*[-–]/.test(l));
-  if (ru) { out.endTxt = ru; const n = ru.match(/,\s*(\d+[a-zA-Z]?)\b/); if (n) out.num = n[1]; }
+  // endereço impresso no carimbo (ex.: "Rua F, Travessa 9" / "Dom Luciano, Aracaju - SE")
+  Object.assign(out, enderecoDoCarimbo(txt));
   return out;
 }
+/* municípios da Regional Metropolitana (e vizinhos) para reconhecer a cidade no carimbo */
+const MUNICIPIOS = ["Aracaju", "Nossa Senhora do Socorro", "São Cristóvão", "Barra dos Coqueiros", "Laranjeiras", "Maruim", "Riachuelo", "Santo Amaro das Brotas", "Itaporanga d'Ajuda", "Divina Pastora", "Siriri", "Rosário do Catete", "Carmópolis", "General Maynard", "Pirambu", "Santa Rosa de Lima", "Japaratuba", "Capela", "Malhador", "Areia Branca", "Itabaiana", "Estância"];
+const semAcento = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+function enderecoDoCarimbo(txt) {
+  const ruido = /\b(lat|long|latitude|longitude|gmt|utc|alt|altitude|precis|accuracy|velocidade|km\/h|nota|note|bussola|compass)\b|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{1,2}:\d{2}|°/i;
+  const ehEnd = l => /^(r\.|rua|av\.?|avenida|tv\.?|travessa|trav\.?|pç\.?|pra[cç]a|rod\.?|rodovia|al\.?|alameda|estrada|conj\.?|conjunto|loteamento|lot\.?|quadra|qd\.?|bairro|povoado|residencial|cond\.?|condom[ií]nio)\b/i.test(l)
+    || /\b\d{5}-?\d{3}\b/.test(l) || /\b(SE|Sergipe)\b/.test(l) || MUNICIPIOS.some(m => semAcento(l).includes(semAcento(m)));
+  const lin = String(txt || "").split(/\n/).map(x => x.trim()).filter(l => l.length > 3 && !ruido.test(l));
+  const linhas = lin.filter(ehEnd).slice(0, 3);
+  if (!linhas.length) return {};
+  let tudo = linhas.join(", ").replace(/\s+/g, " ").replace(/,\s*,/g, ",");
+  tudo = tudo.replace(/,?\s*\b(Brasil|Brazil)\b/gi, "").replace(/\b\d{5}-?\d{3}\b,?/g, "").replace(/\s*-\s*SE\b/g, "").replace(/,\s*(SE|Sergipe)\b/gi, "").replace(/\s*,\s*$/, "").trim();
+  const partes = tudo.split(/\s*[,–]\s*|\s+-\s+/).map(x => x.trim()).filter(Boolean);
+  const r = { endTxt: tudo };
+  const iMun = partes.findIndex(p => MUNICIPIOS.some(m => semAcento(p) === semAcento(m)));
+  if (iMun >= 0) { r.mun = MUNICIPIOS.find(m => semAcento(partes[iMun]) === semAcento(m)); if (iMun > 0 && !/^(r\.|rua|av|tv|travessa)/i.test(partes[iMun - 1]) && !/^\d+[a-z]?$/i.test(partes[iMun - 1])) r.bairro = partes[iMun - 1].replace(/^bairro\s+/i, ""); }
+  const ruaParts = partes.filter((p, i) => i !== iMun && p.replace(/^bairro\s+/i, "") !== r.bairro);
+  if (ruaParts.length) {
+    const n = ruaParts.find(p => /^(n[º°o.]?\s*)?\d+[a-z]?$/i.test(p));
+    if (n) r.num = n.replace(/\D/g, "");
+    r.rua = ruaParts.filter(p => p !== n).slice(0, 2).join(", ");
+    const nn = !r.num && r.rua.match(/\bn[º°o.]?\s*(\d+)\b/i); if (nn) r.num = nn[1];
+  }
+  return r;
+}
+/* coordenada pelo endereço escrito na foto: tenta completo; se não achar, bairro + cidade (aproximado) */
+async function coordPeloEnderecoDaFoto(c) {
+  if (!c || !c.endTxt || !navigator.onLine) return null;
+  const tent = [c.endTxt, [c.rua, c.bairro, c.mun].filter(Boolean).join(", "), [c.bairro, c.mun].filter(Boolean).join(", ")].filter((x, i, a) => x && a.indexOf(x) === i);
+  const soBairro = [c.bairro, c.mun].filter(Boolean).join(", ");
+  for (let i = 0; i < tent.length; i++) { const g = await coordDeEndereco(tent[i]); if (g) return Object.assign(g, { aprox: i > 0 && tent[i] === soBairro, busca: tent[i] }); }
+  return null;
+}
+
 /* GPS escrito em XMP (alguns apps gravam só aí) */
 function lerXmpGps(u8) {
   try {
@@ -14356,7 +14393,7 @@ function abrirForm(r, op = {}) {
   // ---- fotos e localização
   let LOC = T.lat != null ? { lat: T.lat, lng: T.lng, origem: T.origemCoord || "foto", acc: T.precisao } : null;
   function desenhaLoc() {
-    $("#floc", s).innerHTML = LOC ? `<div class="c">${LOC.lat.toFixed(6)}, ${LOC.lng.toFixed(6)}</div><div class="small muted">${LOC.origem === "foto" ? "GPS gravado na foto" : LOC.origem === "carimbo" ? "lida do carimbo da foto" : LOC.origem === "gps" ? "GPS do celular" + (LOC.acc ? ` (±${LOC.acc} m)` : "") : "digitada"} · <a href="${navUrl(LOC.lat, LOC.lng)}">🧭 navegar até aqui</a></div><a href="${navUrl(LOC.lat, LOC.lng)}" class="maplink"><img class="minimap" id="fmini" style="margin-top:8px" alt=""><span>🧭 Toque para navegar no Google Maps</span></a>`
+    $("#floc", s).innerHTML = LOC ? `<div class="c">${LOC.lat.toFixed(6)}, ${LOC.lng.toFixed(6)}</div><div class="small muted">${LOC.origem === "foto" ? "GPS gravado na foto" : LOC.origem === "carimbo" ? "lida do carimbo da foto" : LOC.origem === "endereco" ? "pelo endereço escrito na foto (confira no mapa)" : LOC.origem === "gps" ? "GPS do celular" + (LOC.acc ? ` (±${LOC.acc} m)` : "") : "digitada"} · <a href="${navUrl(LOC.lat, LOC.lng)}">🧭 navegar até aqui</a></div><a href="${navUrl(LOC.lat, LOC.lng)}" class="maplink"><img class="minimap" id="fmini" style="margin-top:8px" alt=""><span>🧭 Toque para navegar no Google Maps</span></a>`
       : `<div class="small muted">Sem coordenada ainda. Tire a foto no local ou toque em “Usar meu GPS agora”.</div>`;
     if (LOC) miniMapa(LOC.lat, LOC.lng, "OS " + ($("#fos", s).value || "?")).then(u => { const i = $("#fmini", s); if (u && i) i.src = u; });
   }
@@ -14377,8 +14414,8 @@ function abrirForm(r, op = {}) {
   }
   function desenhaFotos() {
     const box = $("#ffotos", s);
-    box.innerHTML = T.fotos.map((f, i) => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span><button class="x" data-fx="${i}">✕</button></div>`).join("") +
-      FN.map((f, i) => `<div class="foto ${f.busy ? "busy" : ""}">${f.base ? `<img src="${f.url}">` : ""}<span class="g">${f.busy ? "" : f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "gps" ? "GPS cel." : "sem GPS"}${f.brilho != null && f.brilho < 60 ? " · escura" : ""}</span>${f.busy ? "" : `<button class="x" data-fn="${i}">✕</button>`}</div>`).join("");
+    box.innerHTML = T.fotos.map((f, i) => `<div class="foto"><img data-full="${f.p}" alt=""><span class="g">${f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "endereco" ? "pelo endereço" : f.origem === "gps" ? "GPS cel." : "sem GPS"}</span><button class="x" data-fx="${i}">✕</button></div>`).join("") +
+      FN.map((f, i) => `<div class="foto ${f.busy ? "busy" : ""}">${f.base ? `<img src="${f.url}">` : ""}<span class="g">${f.busy ? "" : f.origem === "foto" ? "GPS foto" : f.origem === "carimbo" ? "GPS carimbo" : f.origem === "endereco" ? "pelo endereço" : f.origem === "gps" ? "GPS cel." : "sem GPS"}${f.brilho != null && f.brilho < 60 ? " · escura" : ""}</span>${f.busy ? "" : `<button class="x" data-fn="${i}">✕</button>`}</div>`).join("");
     $$("img[data-full]", box).forEach(i => fotoURL(i.dataset.full).then(u => { if (u) i.src = u; }));
   }
   s.addEventListener("click", e => {
@@ -14392,8 +14429,16 @@ function abrirForm(r, op = {}) {
       f.busy = 0; desenhaFotos(); dataPelaFoto();
       if (f.lat != null) {
         // a coordenada gravada na foto manda: substitui GPS do celular/digitada e refaz o endereço por ela
-        const daFoto = o => o === "foto" || o === "carimbo";
-        if (!LOC || (daFoto(f.origem) && !daFoto(LOC.origem))) { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc }, true, !!LOC || daFoto(f.origem)); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
+        // força de cada origem: digitada à mão > GPS no arquivo > coordenada do carimbo > endereço escrito na foto > GPS do celular
+        const forca = o => ({ manual: 5, foto: 4, carimbo: 3, endereco: 2, gps: 1 }[o] || 0);
+        if (!LOC || forca(f.origem) > forca(LOC.origem)) {
+          if (f.origem === "endereco") {
+            // o endereço escrito no carimbo é o que vale: preenche os campos com ele e põe o ponto no mapa
+            await definirLoc({ lat: f.lat, lng: f.lng, origem: "endereco" }, false);
+            const c = f.carimbo; if (c.rua) { $("#frua", s).value = c.rua; $("#fnum", s).value = c.num || ""; } if (c.bairro) $("#fbai", s).value = c.bairro; if (c.mun) $("#fmun", s).value = c.mun;
+            checaDup(); aviso(`📍 Localizado pelo endereço escrito na foto${c.geo?.aprox ? " (aproximado: bairro)" : ""}`, 5000);
+          } else { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc }, true, true); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
+        }
         else if (distM([LOC.lat, LOC.lng], [f.lat, f.lng]) > 150) aviso(`⚠ Essa foto está a ${Math.round(distM([LOC.lat, LOC.lng], [f.lat, f.lng]))} m do ponto da OS`);
       } else if (!agora) aviso("📷 Não achei coordenada nessa foto: nem gravada no arquivo, nem escrita no carimbo. Veja abaixo o que o app leu.", 7000);
       mostraLeitura(f);
@@ -14406,7 +14451,7 @@ function abrirForm(r, op = {}) {
     if (f.origem === "foto") { box.innerHTML = `<div class="alert o small">📷 Coordenada gravada no arquivo da foto: ${f.lat.toFixed(6)}, ${f.lng.toFixed(6)}</div>`; return; }
     if (!c) return;
     if (c.erro) { box.innerHTML = `<div class="alert w small">🔎 Leitor do carimbo: ${esc(c.erro)}</div>`; return; }
-    box.innerHTML = `<div class="alert ${c.lat != null ? "o" : "w"} small">🔎 <span><b>${c.lat != null ? `Coordenada lida do carimbo: ${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}` : "Não achei Lat/Long no texto do carimbo"}</b>${c.em ? ` · data ${brHora(c.em)}` : ""}<br><span style="white-space:pre-wrap;opacity:.8">${esc((c.texto || "").slice(0, 400)) || "(nenhum texto lido)"}</span>${c.lat == null && c.texto ? '<br><button class="btn sm" id="fusartxt" style="margin-top:6px">✍️ Corrigir coordenada</button>' : ""}</span></div>`;
+    box.innerHTML = `<div class="alert ${c.lat != null || c.geo ? "o" : "w"} small">🔎 <span><b>${c.lat != null ? `Coordenada lida do carimbo: ${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}` : c.geo ? `Sem Lat/Long no carimbo — localizei pelo endereço escrito: ${esc(c.geo.busca)}${c.geo.aprox ? " (aproximado, pelo bairro)" : ""}` : c.endTxt ? `Achei o endereço “${esc(c.endTxt)}”, mas não encontrei no mapa` : "Não achei Lat/Long nem endereço no texto do carimbo"}</b>${c.em ? ` · data ${brHora(c.em)}` : ""}<br><span style="white-space:pre-wrap;opacity:.8">${esc((c.texto || "").slice(0, 400)) || "(nenhum texto lido)"}</span>${c.lat == null && c.texto ? '<br><button class="btn sm" id="fusartxt" style="margin-top:6px">✍️ Corrigir coordenada</button>' : ""}${c.geo ? '<br><span>Se o ponto não estiver certo, toque no mapa pra abrir no Google Maps e conferir, ou use “Digitar coordenada”.</span>' : ""}</span></div>`;
     const b = $("#fusartxt", s); if (b) b.onclick = () => $("#fcoord", s).click();
   }
   /* a data da triagem é a da foto (tirou dia 30, cadastrou dia 1º → fica dia 30) */
