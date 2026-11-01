@@ -814,28 +814,42 @@ body.tela .legend{margin-top:0}
 @media (max-width:1000px){.tg{grid-template-columns:1fr}}
 /* ---------- relatório (impressão / PDF) ---------- */
 #rel{display:none}
-.rds{background:#fff;color:#111;font:12.5px/1.45 Arial,Helvetica,sans-serif;padding:0}
-.rds .cab{border-bottom:3px solid #1f2a1d;padding-bottom:6px;margin-bottom:10px}
-.rds .cab .k{font-size:10.5px;font-weight:700;letter-spacing:.6px;color:#555}
-.rds .cab h1{font-size:19px;margin:3px 0}
-.rds .res{display:flex;gap:8px;margin:8px 0 12px}
-.rds .res div{flex:1;border:1px solid #ccc;border-radius:6px;padding:6px 8px}
-.rds .res b{display:block;font-size:17px}
-.rds .sec{border:1px solid #cfcfcf;border-radius:6px;padding:9px 10px;margin-bottom:10px;page-break-inside:avoid;break-inside:avoid}
-.rds .sec h2{font-size:13.5px;margin:0 0 6px;background:#1f2a1d;color:#fff;padding:5px 8px;border-radius:4px}
-.rds .sec table{width:100%;border-collapse:collapse;font-size:12px}
-.rds .sec td{padding:2px 4px;vertical-align:top}.rds .sec td:first-child{color:#555;width:32%}
-.rds .ims{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:6px}
-.rds a.nav{color:#2a62a6;font-weight:700;text-decoration:none}
-.rds .ims a{display:block}.rds .ims img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;border:1px solid #ddd}
-.rds table.lst{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:12px}
-.rds table.lst th{background:#1f2a1d;color:#fff;text-align:left;padding:4px}.rds table.lst td{border-bottom:1px solid #ddd;padding:3px 4px}
-.rds .rod{font-size:10px;color:#777;margin-top:10px;border-top:1px solid #ccc;padding-top:4px}
+/* documento no padrão do ConfereOS */
+.rds{background:#fff;color:#1a1a1a}
+.rds .pg{padding:22px 24px 30px;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1a1a1a}
+.rds .cli2{float:right;margin:0 0 8px 16px;text-align:center;border:1px solid #e3e6ea;border-radius:10px;padding:6px 10px}
+.rds .cli2 span{display:block;font:700 9.5px sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a6780}
+.rds .cli2 img{height:48px;width:auto;display:block}
+.rds .eyebrow2{margin:0;color:#9a6a08;font:600 11.5px sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.rds .dh{font-size:23px;line-height:1.25;margin:6px 0 4px;color:#0b2545}
+.rds .ds{margin:0 0 14px;color:#5a6780;font-size:13px}
+.rds .d2{clear:both;font-size:17px;color:#0b2545;margin:24px 0 8px;padding-bottom:4px;border-bottom:2px solid #e0a526}
+.rds .dt{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0}
+.rds .dt th{background:#0b2545;color:#fff;font-size:11px;text-align:left;padding:6px 7px}
+.rds .dt td{padding:5px 7px;border-bottom:1px solid #e3e6ea;vertical-align:top}
+.rds .dt tbody tr:nth-child(even) td{background:#fafbfc}
+.rds .dt tr.tt td{background:#f3f5f9;border-top:2px solid #0b2545}
+.rds .nt{color:#3d4757;font-size:12.5px;margin:6px 0}
+.rds .al2{margin:6px 0;padding-left:20px}.rds .al2 li{margin:4px 0}
+.rds .cf{border:1px solid #dbe1ea;border-radius:10px;margin:12px 0;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+.rds .cfh{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:9px 12px;background:#f3f5f9;border-bottom:1px solid #dbe1ea;font-size:13px}
+.rds .cfh b{font:700 14.5px ui-monospace,monospace;color:#0b2545}
+.rds .cfg{display:grid;grid-template-columns:1.1fr 1fr}
+.rds .cfc{padding:10px 12px}.rds .cfc + .cfc{border-left:1px solid #dbe1ea}
+.rds .cfc h4{margin:0 0 6px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#1f5fa8}
+.rds .cfc:last-child h4{color:#9a6a08}
+.rds .cfc p{margin:0 0 5px;font-size:12.5px;color:#333}
+.rds .gal{display:grid;grid-template-columns:1fr 1fr;gap:5px}.rds .gal img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:5px;border:1px solid #ddd;display:block}
+.rds a.nav,.rds .maplk{color:#1f5fa8;font-weight:600;text-decoration:none}
+.rds .rcred{margin:24px 0 0;padding-top:10px;border-top:1px solid #e3e6ea;color:#5a6780;font-size:12px;display:flex;align-items:center;gap:8px}.rds .rcred .emk{font-size:16px}
+@media (max-width:620px){.rds .cfg{grid-template-columns:1fr}.rds .cfc + .cfc{border-left:0;border-top:1px solid #dbe1ea}.rds .pg{padding:16px 14px}.rds .dt{font-size:11px}}
 @media print{
   @page{size:A4;margin:12mm}
-  body{background:#fff}
+  html,body{background:#fff!important}
   header.top,nav.bot,main,.toast,.sheet-bg{display:none!important}
   #rel{display:block!important}
+  .rds .pg{padding:0}.rds .dt{font-size:10.5px}.rds .dt td,.rds .dt th{padding:4px 5px}.rds .d2{break-after:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 body.relmode header.top,body.relmode nav.bot,body.relmode main{display:none}
 body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-height:100vh}
@@ -13259,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 11;                       // versão da interface (sobe a cada publicação)
+const APP_V = 12;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13286,6 +13300,7 @@ const PERFIS = [
   { id: "programador", nome: "Programador do Asfalto", papel: "Programação e baixa do asfalto", pode: { programar: 1, baixa: 1 }, editaNome: 1 },
 ];
 
+const LOGO_CLIENTE = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAC8AYMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9SVPm3Gewq1UNvHsFTUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUmaaWABJIxXnXjH43eFPBfnw3OoLd3cQ5tLUebJn+6f4Q3+8wralRqVny01dnHisZQwcPaYiaivNnpFJmvn/8A4az0k3XOh3/kYxjzI/M/75zj/wAer2zRtZtdd0m11KykEttdRrJGfUGta+Er4ZKVWNkzzsvzvL81clg6qm47pdjVopB0pa5D3QooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKK+SP+Cg/7YF3+yt4A0uHw1FbS+NfEMzpZfao98dtDHt8yZl/iOWjVV77v9mvn3/gnf8At+fEj4x/GL/hXvxEvbbxFFqNrcS2WpCxjtriCaJfM8tvKVVZPLWT+Hdu2/NQB+nNFFFABRRRQAUUUUAFFFFABRRRQAUVXmuYrWDzZpBFGOpkqxQAUUUUAFIelYHiHxn4c8ICEeINe0vRvO/dxHUbuODzP93e3NalpeQ31lHPazxTQyjKSxSb0Yezd6APDv2jPitN4dtx4b0icx6jcJ5lxNEfnij9F9Gb+X+8K+Xq+htU/Zv8S+LvFF7q+uazZWpup2kcWvmS7E6Kq7tv8O1a9D8M/s8+C9AXMun/ANrTDrLqH7wH/gH3f/Ha+6wmYYHLaFo+9U8j8GzTh3O+JsfUrV/3dKPw3drfLqfLPgz4ea5481GCHR7SWWHepku5v9Qn+0zf+y/er7Z8I+HovCvhuw0mFt8dpF5YkP8AH/eP51sQWsNnbiOGKKGOMYSOMbFUfhVnFfP5jmlTMJK6tFdD9C4c4XocPqU4zc6kt2+3awCloorxT7cKKKKACiiigAooooAKKKKACiiigAopnPr+lFArj6KZn2NGfrTDUfRUIbPAIpxyBwM/U0g6klFFFAwooooAKKKKACiiigAoor56/bq+Nw+AP7M/irXIJtusahH/AGRpWJfLcXM6sokU/wB6NfMm/wC2dAH5Bft7/G4fHj9pjxVq9vN52j6TJ/Yel/vN8f2aBmVpFb+7JI0sn+7ItfQn/BHj4LT+I/ihrfxIvP8AkG+HbVrCzzF9+7nX5trf7MO7cv8A02Wvz1Sv6Cf2H/gn/wAKC/Zo8H+G54fK1i6g/tPVPNj2OLmf52Rl9Y1KR/8AbOgD3+is/UtRs9F0y4vNSvIrOzgjaSe6upFSONB95mZvlUV8FftCf8FcfBPgS5vdH+Gunf8ACc6nErR/2vPI0Gmxv/s/8tJ/+A7Vb+F6AP0For8AfiV/wUG+O/xN1LzpviFf6BD/AMs7Tw5L/Z8Ef/Ao/wB43/AmavFr/wCI/irUdb/t698Sa1eax5iS/wBozX0j3e9fut5jNup2Fc/pnrk/iF8QPDfwt8KX3iPxXrFpoWh2gBnvbxv3a7jhV/2mLHbtX5jkV8ff8EqP2i/FPxs+G/irQPGOpza9qfhie38rUruRpJ5Le487askjcuytDJ8391lrzj/gtH8QLuz8NfDrwJBKBaajcXesXmPv7oFRIf8AgP76b/vlaQz77+F3xk8F/G/w7/bfgfxHaeIdOR/KkltCd8D4+7JG3zI3sy13NflV/wAEUpLv/hIvi3EZd1mLXTPMH+3uudv/AI7ur9VaACiiigD8gv8AgsN8aJ9d+LGh/Dey1OWbR9CsVvtR06H7n26Xcy+Z/eZYfLZf7vnf7VfUf/BJTx5rnjb9l+6tdaupL2HQtcm0vTjNy8duIIJVj3d1Vpm2/wB1dq/w1+Wn7ZfjiL4jftU/EzXoZvNgm1mW1t5R84khg/cRsv8AsssS1+s3/BLPwRD4Q/Y90G7BkM/iG/vdUlB7fvjbrt/2fLt42/4FQK59f183/tr/ALW2nfso/C7+0o44tS8Y6sXtdD02U9X2/NPKud3lR/Lu/vMUX5d25fb/ABp4x0j4f+FtU8R67dJYaRpdrLeXd1J/BEilm+p9q/ny/ak/aD1j9pb4xar401LzYbOX/RtK07zA/wBhtFb93H/vfxN/tM1AXOK+JHxJ8R/Fzxbf+JPGWsXeu69ef6y7vD/46q/djjXd8qrtVa+t/wDgmJ+1TqXwn+LWk/D3U72aXwT4on+yxwzS/u7K+kb9zJGv8PmN+7Zf9tW/hryr9mT9izxd+0x4S8beI9Mmj03SvD1rN5UssO8ajfLF5i2i/Mu35du5vm27l+WvAdK1KbR9Ssbyym8maznS6jm/uOrblp2C5/TyDkdfxoAJ6/mKxPAfi+z+IPgnw54o07/kHa3p1vqVvnrsljWRf/HWroMVPruPrcBS0UUwCiiigAooooAKKKQ0AGaWoiQBn9RShxtyM0ai6XJKKy9W1yw0K1N1qV7bWNsvWS5lVE/M1434q/ay8MaQxi0aC416XH3ox5MI/wCBN8x/4CrVy1cVRo/HI9PB5bjMfLlw1Ny/L79l8z3ckDvVW4voLOAyzTxRRgcvIdtfGfif9pzxp4h86K1nttDtJeY/sce6bZ/vv1/3lVa8v1jWdQ8QXHm6vqFzqEv/ACzlupGm2f7u77teRVzmkv4UW/wPusJwLjaq5sVNQX3/AOR9v618ePA3h5vLm8RW88v/ADytd1wf/Ie7Fcfqn7XPhK1OLOy1O/X/AJ6rGqJ/4827/wAdr5Bory55vXl8FkfW4bgXLafxzlP0dv0Pp+X9su2A/c+GJT/13vVT+StUS/tmOf8AmUR/4Mv/ALTXzT5dJXOs0xD+2j1Hwhksfipf+TS/zPqrTf2xdGl/4/dCvrX/AK5SpL/Va9E8NfHPwb4onMFrrcMV1/zxuw0BP+7vA3f8Br4S8upK6IZxWh8TTPNxXA+WVl/szcPnf8z9LFcMMgg/Slr4E8DfGHxR8PvJi03UfNtMY/s+6Pmw/wDAR/D/AMBr6i+Gfx+0H4g4tJidH1bGPsly/wDrP+ub/wAX0619Bhcxo4nROz7H5vm3CmYZVH2vLz0+8enqt1+J61RUQ5PXj0oVs5GQfYV6q1V0fGEtFFFABRRRQAV+QH/BYr4w/wDCSfFjw58OLMg2nhi0+33pEnW5udu1WX/ZhVW/7bNX62a9rdn4Z0O/1jUZRb6fp9vLdXEx6JEilmb/AL5Wv5uvjH8Sbv4u/FHxV41vPN83XNSlvhDLLveBGb93Fu/6Zx7V/wCA0AetfsAfBH/hen7THhbSLyHztC0j/iearxn9zAyssbf7MkzQxt/ss1fuf8SfiT4b+EfgzVPFXivUYtI0PTo/OnnlPX+6qr/E7MQqqvzM2MV8X/8ABIL4N/8ACHfBXWviDeDF54uu/Kts/wAFpbM0a4/3pmn/AO+Vr4q/4KF/tgXn7R3xQuNB0a8k/wCFfeHbh4tOiik/d30y/K12237275lj/wBlv9pqAML9r/8Abj8X/tS+I57OGa60L4fQyZs/D3mf6zb92W62/wCsk3fNt+7H/D/eb5oro/h58PPEfxU8WaV4V8J6RdaxruoyeVb2kQ/76Zv4VVfvMzfKq1+pfwf/AOCaXwr/AGfPBNz47+OuqQ+JLnTIPt95FMWTSrFFVfl2/euW3Z+98rblXy/7wB+V/hL4e+KvH9z5PhnwrrXiSb/njpFjPcyf98xq1ex/8MAftCSW0F5/wqvVfJm/1f72DzP+BR+ZuX/gVfYer/8ABYDwf4Dt/wCwvhr8JR/Ydpujs/Nu49NjCf3ltooW2q33vvVtfDT/AILO6Bqes2dl468CS6DZSv5cmraVfG68n/aa3aNW2/7rM3+zVEHqH/BMj9lfxd+zl4D8U6l43tYtN13xRcW//EpEiu9rBB5vl+Yy/LuZppOF/h2/7q/Hv/BYfxbDrH7TGh6PDL5v9keHIIpIf+ec0s80jf8AkPya/YLwz4m0jxp4csdd0TUIdS0fUYFuLa8tZN8cyN91lavwp/4KT6qNU/bX+I2OkUllbf8AfFnbrUln2J/wRT0XyfBXxS1gx4ku9TsrYy+vlRSN/wC1v/Hq/Syvh/8A4JD+FZvD/wCypPqU/H9u+ILq+j/3Ejht/wD0K3evuCgArg/jl8RIfhL8H/GPjKZRMdC0q4vY4v8AnpKsbeWn/Am2r/wKu8r4V/4K6fFKXwV+zjZ+FrOaKK98XaklrJEfvvaQfvpNv/bQW6/9tP8AaoA/GGZ5p7nzv9dNN/5Eev6Rf2f/AAAPhb8DvAfhEgCXR9GtbWcj+OZY181/+BSbm/GvwN/ZW+HcPxa/aO+HXhaaHzrPUNZtzeQk/wCst4m86Zf+/cclfv78ZPihpvwW+F/iLxtrGTp2iWT3MkY+/M33Y41/2mcqv/AqBWPzu/4K9/tMZNj8FdAvOf3WpeIjDL/wK3tm/wDHZmX/AK41+c/wx+HOsfFvx/ofg/QIfO1jV7tLW3/ufN95m/2VXczf7KtVT4g+OdX+J/jfW/FWv3Yu9Y1e6lvrmUf33bdtVf4VX7qr/dWv0x/4JC/s4/2Vo2tfGXxDaeTLOW0zQvtUeNkS/wDHxcqzf3m/dq3+zJ/ep2JPvr4H/B3QvgP8MND8E6BFiz06ERyTeWqSXUp/1k77f4nbc341/Pt8efBEPw0+Ofj7wtZAiz0nXL2xtwf+eKTMsf8A5D21/QTrnx++GXhkf8Tn4keEdK/6/NctoP8A0KSvwj/bZ8QaD4q/ap+ImseGdXttd0K8vUurfUdPl3wPuhjaTa38X7zzF/4DTA/aP9hLXP7f/ZB+Fc//ADx0ZLH/AL8M0H/tOveq/LD9j7/go/8ACv8AZ+/Zp8K+CvEFn4kvNe0l73zYdNsY3T97ezTLtZ5F/hkWuv1n/gtR4KguMaX8ONfu4P8AnreXsFs3/fK+ZSsVc/SCivy5vv8AgtmAALL4P595vEX/ALKtrXHS/wDBaDx5/aUU0Pw/8OGzL/vIftNw8gT/AK6btq/980WC5+u9FeNfst/tFaP+1F8JbfxppFnLpQNxJY3unTSB3tLhArMm9fvLtkRlb5flZa9lpDCiiigApD0paQ0AZ2o6hBpVlLd3dxHBBEpeSV/lVVHUmvmb4hftV3tzcz2fhG2NrBjH9oXce95B/eSPt/wLd7qK739qvVpdO+GqQQyiIX97HbO3+ztZz/6AK+Q7Sym1G48qyhlvJpf9XFFGzu/+6q181mWMqU5+zpH6pwjkODxdF4/F2aTtZu0SxrniDUPEdx9r1fUbnULv/nrdSb/L/wB3+7/wGs6vX/Cn7MXi/wARMJLwR6HaHvd/PN/3wv8A7My17N4U/Zb8J6A0Eupm4126iHSX5Ic/7i9v9lmavHp4DE4vWf4n3GL4nyjLY8lJqUl0irr9I/cfINpYzahceTZwy3k3/PKGJnf/AL5Wu+8O/AHxz4lt4ZV0OXT4pefO1CVYf++k/wBZ/wCO19junhnwDpoJXSvD9mPXy7dB/wCgiuG179prwLovnxw3d3q00I5TT7dnB/3ZG2of++q9ink1KP8AGm3+B+d5h4lSoe7RUaf+J3PMdP8A2OtVmC/bPEFrZ5/1gtrdpT/wFmZf/Qa7HT/2Q/ClswN5qOqXb45G+NE/RAf1rntV/bFf99/Zvhk4H+rlurnGf+Aqv/s1cbf/ALVPjq7GIv7LtD6w2zD/ANDZq7o4HBw+yfneN8TsRU+LFP8A7dVj3K1/Zj+H9qOdIluT6y3039GrXi+A3gKEceG7Rv8ArqzP/M18tXH7QvxBuhj/AISOWL/rlbQr/wC06zn+MfjV/wDmadUH/bSt1HDraC+4+Yn4iVHvUqP5v/5I+tJvgH4AnH/IuWy/9cpXT/0Fqybz9mLwFcDEWm3VqfWHUJv/AGZjXzZb/HDx1a/6nxRcn/rsIn/9CWtiz/aX8d2v/MSivP8ArtbR/wDsqrT5MO/sL7i6XiFNf8vpr/t5/wCZ6lq37IGjXIJ0/XL2ym7C6jjnj/IBW/8AHq4bXf2U/FWl/wDINubLVh6mRoX/AOAqfl/8eq5o/wC134ktlP8AaWh2Gon1tJGtv/QvMr0TQP2rvC+oqF1SzvtJl7kxecn5plv/AB2uapl+DqvmtZ+R9dl/iTWdrYi67TX9P8Tn/AfxK8WfDh4dI+IWn6gLAD5NUkTzfI7/ALyRdyuv+194d6+gbK9g1G2huLaSOWKZPMWWM7lZfY1meHvGWg+LLZZtJ1K2v49of91IC6/7y9V/GtWxsbewtVhtIobeEEkRxRhE5OT8orvoQlTjZyuPGY7D5jL21OCjJ78r0foun3l0UtRgn2p1dR5ydx1FFFIo+OP+CpXxl/4Vh+zBf6RZ3hs9Y8XTro8Xl/6z7Ofnuj/u+Wvlt/12WvxW8GeFbzx34t0Pw3pn/IS1e+t7G3/67SyLGv8A481faP8AwV1+LM3jP9oax8Hwzf8AEu8I2CReV/0+XKrNI27/AK5/Zl/4C1Vv+CSfwj/4Tj9o648VTRebpvhGxa6zL/z8Tq0UK/8AfPnN/wBs1oFc+9/2wvEkX7LX7C2q6R4a4NnpVr4U06WYchHVbdpPl/jWLzG/3lr8KEj31+yH/BZWaWP9mbwrEvSbxdbh/wDwDvK/Lz9l61tNR/aY+Flnec2k3ivTfM/8Co6AufsX+wN+x7p/7Mfwyt9R1O0ik+IOuQJNqt35WHtkOGWzj/uqv8X95h/srt5//grJY6he/sh30tkZPslprFjLqAH/ADw3Mvzf9tGhr7QrH8U+GNN8ZeHtT0LWrOLUdI1GB7W7tJxlJonXayt9RQM/mMor9qdQ/wCCQPwMu9R+0RXvi6yhP/LpDqcTx/8AfTwtJ/49Xyb/AMFJf2JPBX7NXgrwT4k8Aw3UFpeX8umaiNQvmmd5mj8yFl3fd+WObd/wGncg9J/4I4/He8e58UfCHU5pZbOGBtc0fzMbIMOqXMS/7zSRyKvtI38VfCf7V2qzax+1F8W7yb99/wAVXqUUf+4l1JGv/jqrXqP/AATL8STaF+2d4Bihl8qHUfttjcf7aNZTMq/9/Fjb/gNeLfH6f7X8dfiNNN/rpvEmpeZ/4FzUWKuftX/wTPsPsX7FHgAf89vt8v8A31ez19SV81/8E55hP+xh8Mif+fS4H5Xc1fSlIYV+JX/BWL4uf8LB/aY/4RyyydN8G2Kabz9x7mT97My/99Qx/wC9DX68fGz4pab8EvhL4o8c6mPNs9EsXuhDvCefL0jiU/3pJGVP+BV/ON4k8R6l4x8Sarr2szfbNS1G7lvrib+/NKzSSN/30zU7CufeX/BHH4XjxD8YfFXju8tI5bPw7pn2S2ml6x3Ny331/wBryY5lb/rp/tVN/wAFLP24PCvxw8MaJ4E+HeqXWp6TDfPfard+VLDBO6fLDGu7a0i7meT7u35Y/wDgPa+FruD9j3/gltNq8Ul1p3i/4k7mtufnR7tdsbIf4VW0j8zd/eP+1X5e0WC4VpX/AIn1jVNOsdNvNSu7zTbNPKtrS7umeCBP7sas21f+A1QRPM/67V674B/ZC+M3xLuRDoHwy8STZ6TXdi1lB/3+n8uP/wAeouFjx+ivs7wz/wAElPj9r9x/ptnoHhuH/qI6ur/+k6y186ftBfBrUf2e/i1rfw+1i8tdS1LSBb+bd2gbyH823jn+Xcu75fO2/wDAaok88or9Cv2M/wDgmPoH7Qnwe0H4jeJfG2qWdnrEl3/xKdJto45EEVxJB/r5N/3vLZv9X/FX1Jp//BIj4D2kAWc+KNRP/PSbVFQ/+Q41qblWPxRp+yv3a0v/AIJf/s4afAvneA5tQmH/AC1u9cv+f+ArMq/+O12uhfsM/ALw3cGaz+FugSzD/n9ia8/SZmouFjxL/gkT4P1fwz+zDqeo6pDNZw63r819Z+dGyCS3W3t4hKu7szRv83tX3NVW0tYrC3hggijhhiQRxxxDaqKPuqFq1SGFFFFABSGlpD0NAGB4n8KaV4w0w6drFpFf2ucmOQdG/vAjoap6D4T8N+AtOk/s7TrDSreOP95NgISo/vyHk/Vq8++Ln7Q1n4Enm0nS4P7U1uIfvA/EMHy5+Y/xN0+VfXllr5f8afEbxF49uidY1GW8iP3LX7kCf7qL8v8AwL71c85U73auz5rMOJ4YCDw0JOVneydo/M+oPGf7Unhbw4s8Oj+d4kvIhz9lOyD/AL+tw3/Ad1eI+L/2lfGniUzxQ3cWhWn/ADy0775T/rq3zf8AAl215R/q66jwp8M/FHjUgaPpN1LEel2fkgP/AANvlaovUnufnlbOszzKXJS0j2jp/wAEwLy+m1W5+2Xs0t5ef89ppWeT/vpqir33QP2P9ZuYBLrGuWunTH/llaRtcgf8CbbXomj/ALKngjTh/povtX/6+rop/wCiglNU5P4iqPD+Y4mV6qt6v/hz498uprCxm1L9zZQy3k3/AEx+f/0Gvuk+E/h74RMPm6doOn9ozPFErn/gTcmnX3xi8C6NBum8Q2BHpav5x/JNxraODqT+GLZ2Ph6hR/3nFQj/AF5tHxRF4I8RyjMXhzWpR/0ysZ3/APQVqwnw28XP/wAyvrP/AILZv/ia+uj+0l8PU/5jMrf9uFx/8bpn/DS3gL/oIXX/AIATf/E10LLK/wDz7f3ELAZFHfHx/wDAonyNL8O/FMX+t8Layfppk3/xNVLnwxrFjbedNo+oWf8A12tWT/0KvsmP9o74fzDjXH/4HY3A/wDZK3bP4reEdSGIPEemEn/p5RW/75as5ZdWj8UH9xuslyqv/Cxi/wDJX+p8Dp+8qSv0FvfDfh3xMFlvdM03VM9JZoI5T+eK4rX/ANmzwNrhaRNOm02c9HsLhkUf7sbExj/vmuR0LbCq8J12r0akZ+uh8Y213NY3ME0M0sM0P+rmhl2SJ/utXrHgb9pLxR4XEEOok63Z+l0f3x/3Zf8A4rdXWeI/2RLyATTaDrkd2T/q4NRi24/7aJ/8TXk/ij4R+KfCH/IS0K68n/n7h/fJ/wACaP7v/AqiKmjynh81yeV4ppd91+B9deAfi54c+I9uP7OuzDeAZexuvkmH/Ae6/wC0vFd5jKjmvzgs76axuYJrKbyZof3sc0PySRv/ALLLX0j8IP2kTc+VpXi6WOKU/u4NUB2I59JM/dP+10rpjVUtz7PLOJIYl+xxfuvvsj6RqjqmpWmkabfajeTCG0s4XmnlPREVdzN+VWQ+9RgBh7V81f8ABRH4ky/DL9kXxzd2c0ceoarCmiW4bnm5bypdv+0IWlP/AAGtkrn26aeiPw8+Kvj+b4ofFLxV4wm82GbXNSuNT8mX59iSyMyxf8BVlX/gNfsB/wAEmvhXD4F/ZlPiSa1EOo+LdRluzMfv/Zom8iFP93cs0i/9dq/GTRNGvPEet2Om2UPnXmo3cVrbw/35pGVVX/vplr+lH4aeCbT4cfD7w34Vsj5lpoem2+mRSnq6RRqmf/HaQ7Hyp/wVo8GzeKP2RJ9RiEkh8Pa1Zam4h7o3mWzfh/pNfitoOuXnhnXLHWNMm+x6lp08V1bzff2TI25W+b/aVa/pe8ZeEdN8feEtb8NavF5+mavYzWFzF6xSxtG+P+Asa/nY/aD+CGvfs7/FnW/BOvx5ms38y2u/+Wd7bN/qZl/2WX/vllZf4aAsfs/+yd+3f4C/aS8N2MF5qVj4c8dxqsd7oV3Mqec/Tfas3+tjbrtX5lzhuzN9TV/LpW3N4116703+x5tY1CbTf+fSa6k8j/v3u207Bc/eb49ftzfCb9nvTZzqniS11zXgHEWg6HKt1dO6/wAMm35YfrIV6H71fjv+1l+114v/AGsPFsOo6z5Om6Fp5f8AsvQrSTfHaq33nZv+WkjbV+b/AL5Va8GoosSfRn/BOy3+0ftnfCwf9P1xJ/3zZXDf+y1yX7YXh288JftVfFTTryHypf8AhJL26i/64zzNPH/5DkWvTv8Agl5ok2qftr+B5u+nQahcyf7n2KaP/wBCkWu+/wCCu/wim8GftDWXjaAf8SzxdYpJIf7l3bKsUi/9+/s7f8Cai5Vj6l/4JEfGKx8WfAu9+H893F/bPha+lljts4d7Od/MWTb3xM0y/wCz+7/vV98PJsr+Z74d/EnxV8J/Ftj4k8J6xdaDr1n/AKu7tP8A0Fl+7Irf3W3K1eofFP8Abg+OHxj8Of8ACN+K/Hd3Po8vFxa2lrBZpOPussnkRr5i/wCy3y/7NFgue6/8FNv2z7L45eLIPh74M1EXfgnQp/MvLuH/AFeo3y7l3K38UMfzKrfdZmZvmXa1fM/7MHwTvP2hfjp4W8FQ+b9j1C683UZYf+WNnH800m7+H5VZV/2mWvK6/Zn/AIJa/srTfCD4cTfELxNaGDxR4ogUWcMobfY6dwyqyt91pWxI3+ysf+1RcLHzB/wV2+LdrrPxY8LfDHSJANI8G6cktxaRbtkd3Oqsq/7W23WHb/12avj74F/Ci7+N/wAWfC3gTTf3MuuXy23nff8AIh+9NLt/2Y1kb/gNdh+2pPqV1+1n8WpdS/4+x4guoh/1xVtsP/kFY6+7P+CP37Pf9m6Lrfxf1i0kE96X0jQ/Ojx+5G03E6/3tzKsYb/pjJ/ep3SV2S2lp1PuX4Z/s3fDL4OW1kPCfgjRdIu7SPykv4rRXu3H+1cN+8Zv9pmr1Go2bC8n9KaWwBg/kKi5V76Etfgd/wAFJp/P/bY+Jv8A13sov++bC1r97uMgg1/Pt+3rey6h+2J8U5Zeg1Xyv+/cMcf/ALLVxV73F0ufrP8A8Exf+TH/AIc/7+pf+nO6r6mr5b/4JlxhP2Ifhx6/8TM/99andH+tfUlSUFFFFABRRRQAUUUUAJmkf7jY9Kbt4AzxSk46Ur7C3R+fniDRdX1bxprdrBp11PqBvpZpLWGNnfc0jfw16d4M/ZS13UgJteu49DiP/LGDbNP/ALXP3V/8er6W8TeMNF8I2Zu9X1GGxi5wJT8z47KvVv8AgNeD+Nf2qp5fOh8L6eI8Di71H/2WNf8A2Zv+A114PKq+Lf7qN136feflWNwuS5NN18fWu30v+a1ueoeHPg74I+H1v9sGnW3nw/vX1DUdsjoV/i3Nwn/AdtZfiv8AaO8IeGmlhtZ31q6H/LPTxvT/AL7Py/8AfOa+VPEvjLXPGVyZtY1G61HPWKWX5E/3Y1+Vf+A1kV9fhuGoU1evK/kj4/HeIDpR9nlVBQj3a1+7b8T2vX/2rvEupL/xKdPtNJjxz5ga4f8ABvlH/jteea38UPF2v3Hm3fiPUB/0yil8lPyTatYumaLqOszmPTtOutQkHU2sbP8A+g122j/s/eONYgEv9kiziPT7XKqf+O/eX/vmvYhRy3Bauy9T5OpjeI87WjqTX93T8rI87f8Aefvv+W1Fe7aR+yZr04/4mWt2Nof+nWJpv/QttdBZ/sk2kZ/03xHczD/pjbqh/Ni1DzjAU/hf4GtLgzPq+vsn85L/ADPmmivqpf2S/C3/AEE9W/7+Rf8Axun/APDJfhb/AKCesf8Af9P/AIisP9YsJ3Z6H/EP877R+/8A4B8pUV9OX37I+kuubPXb6E/9N4o5P5Ba5/VP2SNSgXOna5a3c3/T3E0P/jy7q2jneCqfFJ/ccVTgjPsP8FK/o4s8P03VbzR/31neXVn/ANekrJ/6DXceH/j14z0ArENYN/EowIb9FlA/3n+//wCPVNrX7PfjjSIDJ/Z8WpRAZP2SRXA/Btpb/vmuD1PSNR0acR6jaXWnynpFdxsg/wDHq6b4DG72Z5V88yV3anT+9fqe/wDhz9rVWMUWvaLsBH7y5sJd/P8AuH/4qvWfCvxZ8L+MMJp+rRmc/wDLrN+7l/75bk/hXw3RXl4jIcLU+D3T6bAeIOZ4R+zxVqi9LP79vwPt/wAX/Brwl42/f6hpUUV4eftdr+6mz/tMv3v+BZrw/wAY/sp6vpeZ/Dd3Fq1v1+zXf7mb/vr7rf8AjtcD4V+Lvi7wdj7Jq800X/PpdnzU/wCA56f8B217N4V/au0+5/c+ItNks+MG7tf30f8Atbk+8v8A49Xy+KyHE0X7seb0PtqPEPDucu2Jj7Kp3en3P/Mzfg98UNR8D6hD4R8YQ3dpCT5dnNdRMvkfN90t/FH/AHW/h/3fu+Wf8FgfDmoa7+y/pl7ZQ+daaR4ktL68/wCmcbQ3ECt/38mjX/gVfXEN94R+KOnGIS6frlts5jba7x7h3B+ZDWlF4U0+Tw3NoV9CNW0iaJraW01DbNHJEePLYMPnXB2/NnNeK06ek1Y/R8spunSUFVVSC+Frdfnf7z8Rv+CaPwePxS/aw8OTXll9s0jwuja5eH/lmjxf8evzf3vtDRtt/i8tv9qv3azXG+BPhR4K+GMV4ng7wpo3hZLt1kuRo9hHa+cR03bFG6utcbgP5ms077Ht3Jq8M/am/ZR8IftUeCP7H19G07V7TfLpeu2kS/aLGRv/AEZG38UZ4b/Zbay+5DpS0xn4IfHD/gnj8avgpqUpXwtN4v0Lf+71bw7E14jr/wBNIVXzI/8AgS7f9pq+e/8AhEdY/tv+x/7Nu/7Y3+V/Z3lN5+/+75f3t1f050U7isfhD8CP+Cbfxl+NdzBNe6PL4D8NmTEmo+Iomhk2fxNHat+8k/2d21W/vV9c/tTfsIeFvgz+xB4jsfA+mSaxr2m3NprOq6xdR+Ze3aRbkmYf3I1jkkby1+VVVvvNuY/pLRRcLH4x/wDBHnwld6r+0vrmvRWcv9m6R4fnEl35X7tJppYVjj3f3mVZm/7ZtX6cftP/ALO2g/tPfCe/8H607Wk3mfatO1GOLe9ldqrKsm3+JfmZWX+JWbp96vS9B8LaP4VtpodG0iw0mGVzLJFp9skKO395gqjmtg0hn84fx0/Zw8efs5+JJtI8Z6DLpo3/AOjajDuexu/9qGb7rf7v3l/iWvPdN0q81nUoNNsrOW8vLyRIo7Ozi3yO7fwqq/MzV/TffWNpqljPa3sEV1aTKY5IZ4w6Ov8AdZT1rF8O/D7wv4UuJp9B8PaTo883+sl0+xjgd/8AeKqM07kPe3U/ND9hP/gmTqcmr2PxC+MenfYrSKRLnTvCd1FmSZxyst4rfdj/AOmLfM38e37rfqxUTzLGuSQPxry/xj+0H4S8LGWKK5/te7Gf3dh869O7/d/nWtKhVru1ONzixePw2Bh7TE1FFebPJ/jd/wAE5/hL8d/iY3jvWxrWnardbP7Qh0m6WOC/2qFVpA0bMrbVVcxsvT+981e5JeeD/gz4S03RoJbLQNE022S1s7QNgRxIMKqr95q+dPGn7RnifxQstvp0v9h2Ugxi1OZ/xft/wHbXllzdTX1z5000s003+smm+eR/+BV9TheHq0/erO3pqfleaeIuFofu8vg5vv0+S3++x9I+Lf2rrW3T7P4b06S7lx/x93/yJ/3wvzN/47Xkes/Gzxlr1ws02t3NpjpFp/7pB+X3v+BVyGm6VeaxceTZ2ct3N/zxhiZ3/wC+Vr1n4dfs4a1r9xFd+IoxpOnDEnlD/Xz/AOzt/gH+983+zXtvC5dlkbzSv958PDM+JuJqyhRbS8lyx+8+gfhHruoeJfh9pGpanxeyo/mHy9m8B2Ctt7blAP41+D/7babf2uviyf8AqPy/+Pba/oOsbOLT7SCGCGOKKKMRpHGMKqrwqivyd/b3/YL+KPjT9pbVfGPgDw5L4j0bxQ9vL/ok0SfZLlYVjkWXzGXareX5nmfd/eba/Oqk1KTkla5/SWGpTo0IUqkrtRs33fc+6f2A7GPTv2OvhbFDwJdMNz/38meQ/wDoVfQtea/s8/Dy7+EvwM8D+ENTlil1HQ9Ht7W7li+55yx/vNp7jdur0qsjqCiiigAooooAKKKKAGdPwrzX41/Elvhx4X+02ojl1C6fy7eJzjty2OrBf6ivSen4V5z8WvhRD8VdPs4/th0+8tZC8cxj3jB6qV3L6L/3zXVhfZ+1i6vwo8TOY4yeAqrAK9Tp0PjTWda1HxBqM+o6jdy3V3L/AMtZZN//AAFf7q/7NTaH4b1bxPceVpGn3WoS/J5nlR79m7+838P/AAKvp/wl+y94f0Uedq80muTjscww/wDftW5/4ETXr2naVZ6VbiCzs4bSEdI4o1VfyFfZYjiCjShy4aH6L7j8ZwPh9jcZL2uaVeXyWr+8+YfC37KmvaifO12/t9KhxnyYB5zn65+Vf/Hq9c8Ofs8+DNA8l2046rPGMCbUJPN/8c+5/wCO16pSYr5ivmmKru7nZeWh+oZfwllGXe9ToqUu8tX/AJfgUrXS7bT7ZYrW2hto16JFGFUfgKsYAPHFTUmK8p3l8TPrlCEdlYjGc8tn8KcV/wA5p9FMpq+43BoxTqKkLIiVRntSs2Pan0YqhWIxtbqc/Wql/pNlqVuYbuyhu4W6xzRKyn8DV/FLSV4/C7ClThPSSueQ+Jv2b/B+vmae2tJNHuZer2Em1f8Avg/KB/ugV5D4q/Zh8R6Ixk0eWLXLYds+TP8A98t8rfi1fXeKDXs4fNsXhn7sr+up8bmPCGU5iryp8su60f8Al+B+deo6Xd6RcfZLy0ltLv8A55SxMj/98tVSv0F17w5pniO1FvqdhbX0HpPGG/L0rx3xZ+ytot/mfQbuTSpO0Mn72H6c8j9a+qw3EVGouWsuX8T8nzPw7x2GfNl81OPbaX6nzFZ301jc+dDNLDN/yzmhl2SR/wDAlr03wn+0Z4u8OeVFdzx63aRjHlXR/ef99r83/fW6sjxP8EfF3hX/AF2jm7h/566ePNjP0VfmH/Alrha9qUMFjVspeh8TGtnOQ1uWHNSl21/LY+sPDX7UPhrVLeL+0oLjRpCPnDIZU/4CV+Y/9816jo3izR/EKk6ZqdrfAHk20yvt+uDX5/VJDPNa3PnQ/uZv+e0NeHX4co1H+5bj6n2+B8SMbS0xcFP8H+p+jIYHoQfxpa+EdC+LvjLw65Sy8Q3UqHrHdf6QT9C+7H/Aa6/Tf2pPF9oALxNNvx3DxtHIfxVsf+O14tXh/FU3ZNP5n3OG8RMqq+7VjKL9Lr70fX9FfMsP7Xlwi4l8MRSe8V8y/wDtOtS2/a4sJR/pHh+6i/643CP/AD21wPKMav8Al2e9DjLJJf8AL/8ACX+R9DUV893P7XGmRj/RPD19MfSWSNP/AEEtWXc/tdTFcReF4v8Agd+T/wC06I5Rjpf8uwqcZZJD/l/+Ev8AI+mKaXUdWA/GvkDVv2nvF+poVtHstPB/542+6Qfi7Mv/AI7XBa/4/wDEXiQk6jrl9dE9YhIyIf8Atmvy/wDjtelS4dxUnao1H8T5zFeIuW01fDQlU+5fmfZPib4p+FfCit/aOt2yTJ1hjPnSf98rk15H4r/awUHyvDmleZx/x83vAH/AF6/99CvnKl8vfXuYbIMNS1qPm/A+AzDj/NMX+7wkVBf3VeX3/wDAOl8V/ErxF41/5DGryzRf8+kXyQf98L8rf8Crma9N8Ffs/wDijxV5Es0DaJp3/PW+G2TZ/sx/e/7621734H+APhjwiYpprY6tqAH/AB9X3z8/7KfdX8s1vVzXBZauWjZvsjkwPC2d8QVPb4xtLvJ6/cfNHg/4ReJ/HB83TdO8m0/5+rv9zB/wFv4v+A7q928I/staHYAT67eS6vN/zxiHkw/+O/Mf++q91VFUYAAH0p1fJYrO8ViXdPlXkfr2VcDZXl3v1U6s/wC9t8o7ffcydJ0DS9DtxBptlbWEP/PK3iVB+laDpjkLn2HFS4pa8Fybd2z9AjSpwioxikkIOlLRRUmgUUUUAFFFFABRRRQAUUUUAMBGPak5HXgVJRS8hWI1XC//AF6a44GQD9TU1JT22Cy2AdKWiigYUUUUAFFFFABRRRQAUUUUAFFFFABRRRQBEeeAcGl2krjPPqKfS0b7itpYiZAwxnArlvFHw18OeLiW1XSba6lxgS+XtlH/AAMfNXXUVpCpKm7wdvQ56+Go4qHs68FKPZo+fPEX7KGl3Rll0bVriwznMN0nmp+B+Vh+ZrzLV/2dPGelAkabHqIHewuAw/JtrV9oUhFe1RzvGUt5c3qfD47gbJ8btT5P8Oh+eeq+GNW8PrnUdJv9PHrdWzJH/wB9NWdX6LtGjjDID+FYWoeA/D2r/wDH7omm3X/Xa1jf+a17FPiRqNp00fF4jwz5dMPiXy9mv1TR8C0uwV9sXPwG8C3LeY3h+OM/9MpJE/RWFVW/Z28Bn/mESf8AgVN/8VXf/rJhpbxl93/BPFn4b5lH4KkH83/kfGFFfaUf7PPgVD/yBj/4FTf/ABVaFj8FPBWnJti8OWMw/wCnlPOP/j+6pnxJho/BCQ6fhtmFT46sF9/+R8PJH59z5MP76au00L4NeNPENwTDoV1Dj/lrd/uU/wDH/wD2Wvtaw0Ox05SLSytrUekUSp/KtEIAMDArzavEdRq1KCX4n0eF8NcPe+Lrt/4Ul+dz5p8K/snzzES+I9W8sf8APrp3Qf8AA2/+Jr2Xwl8LfDPglQdK0iGGf/n5kG+Y/V2y3612WKWvn8RmGJxX8SZ+i5dw5lmVq+HpLm/mer+8jI2+i0jHaB82KkoxXmKKWvU+m9ApaKKoAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigDxb9o39qz4f/ALLmh2+o+Mr2c3d5n7HpOnRrNd3W37zKrMqqq/3nZVr4i1P/AILSSrqc32L4TRy6bv8A3YutdaOeRP4Wbbbsq/7vzV87/wDBTjUbu8/bV8UQa99pOm2cWnxWeBhxafZYXbyd33v3jT/8C3V9/fBPwb+xf4/8IWGheE9H8A6ybuHEdnqqwyaydy/Nu8//AEgN/u/8BoA0P2a/+ClHw5/aB1ix8N3kVz4J8Y3biO307UZPOt7tz91YZ1Vdzf7LLHub5V3V6p+1Z+07o/7Kfwxg8X6xpl1rAur5NNtLS0lVN8zRySAM7fdXbDJ821u3rXkfhj/gmJ8LfBHx00P4g6LNf2mnaTcJfW3hmaUzW8d2g/dyrMzeZtVh5m1t3zd9vy1xv/BZf/k3Hwh/2NkP/pFd0AcB/wAPrYP+iPy/+FF/9y0f8PrrP/okE3/hQ/8A3JUX/BOX9lT4OfGH9nAa/wCN/B+n6zrw1m7tftU11NG5RfL2rtWRV/ir6k/4d+fs1f8ARPdL/wDBnd//AB6gVzrf2Uf2k7P9qX4XHxhZ6PLoQivpbCezluVn2SIsb/LIFXcu2Rf4a+RfEv8AwWf8OWOtXsGifDK/1fTIZMW93eauttJOP73liGTb/wB9V94fC74R+EPgp4VPhzwToUGg6MJ2u/skLM+6VsbnZmLMW+VfyFfh7/wT9+Gvhz4vftQeFvDfivR4tY0K7gu5Li0lLJG+y1kZfusrfeVaNHuFrH2Ppn/BafSXuf8AiZfCi7tLT+Oa11xZn/75Nun/AKFX1X+zj+218Mf2nbmfTvDF/dadr0MfmyaJq8aw3RT+Jk2syuF77WOKoXf/AATn/Z2vbbym+GVpCP8Aplf3aP8A99LNX5P6d4bh+BP7fdjoPg3V5byHQ/G1vYWd2Pv7PtCxtA3977zQt/e2tQ7PZBzPofvl5lfHnx9/4Kd/Cf4KajfaHpgu/HPiO03xvZ6TtS1hmX/lnJct8v8A37WTb3p3/BTj4/3fwT+Ag0jQtROn+I/FlwdMt5IWInhtVTdcyx+h2+XHu/h87dXyJ/wTw/4J/wChfHLw3/wsb4iebeeHftTW2naTFI0IvtnyySSSL8wjWT5VVdu5o2/h+8bbBqdzY/8ABaWQajEb34TRwacX/eeT4hZ5kX1Xdaqrf7vy19q/s5/tffDj9qDT7g+DtTmh1e1j8y50TUY1hvoE4xJsDMrJ8y/MjMvNUfEP7CHwD8R+GRoc3wy0CziCfJdabai2u1/2vtCYkb/gTNXmP7MH/BNzw3+zV8WbjxrB4u1HXpoVlh0qznhWHyEddrGVlb9821mX7qr/ABbc0D1e56p+11+1Pp37JvgDS/Et9ocuvy6jqSaZb2UNz5PztHI+5m2txiP+73rd/Zh+PUP7Svwe0vx3Bo0mhLeTXERspZvOMbRStH9/au77v92vlP8A4LPf8kL8Ef8AYyf+2s1eif8ABKR/M/Y80T1GqXv6ybv60CueefFv/grloPw0+I/iTwpZfD6717+w7+bTJbyXU1tTJNFI0cm1PJY4yprk7L/gtRpj3UJvfhNdw2Z/1k0Wuq7p/uq1uu7/AL6r5DsPCuneP/8AgoHf6Dr1oNR0jUfiPd215aGRkE0TajIrLuX5q/Vq7/4Jy/s7X1t5R+G9rD/00hv7tJP++lmoC5ofs2ftsfDT9qO6uLTwve3Wna9ax+ZJoWrxrDdeV/z1TazLIvIHyt8v8WPlrpP2n/2jtB/Ze+F83jHXrO51JTdRWFpZWv8ArJ7h1ZlTc33RtjZt3+zX4s/EfRJv2Q/2zb3TfCepS3h8I65by6fLL990ZY5vKk2/e+WTy2/vfNX6N/8ABYx/+MXdD/7Gu0/9JbygZ5t/w+qtP+iQTf8AhQ//AHJR/wAPqrT/AKJBN/4UP/3JWF/wTV/Zi+EHxo+BGuaz4+8K2Os6xD4hntY7u6uZoSkK29uyr8ki/wAUjf8AfVfWp/YA/Zlf/mQtK/8ABpc//HqBXOn/AGSP2o9N/aw+H9/4lsdCm0GXT9RfTLm0mmWf51jjk3K+1dy7ZF/hr3euE+FXwa8F/A3w5NoHgbQYdA0iW4a6kghkeTzJWVVZmaRmYnaq/wDfNd3QMKKKKACiiigAooooAKKKKACio4myMVJQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHgH7Tn7Gvw/8A2ptNtx4lgm0/xDaR+XZ69p21LuNNwby23DbJHuz8rD5dzbdu418BfEH/AII0/EHSp5z4O8YaB4is8ZjGpRSWE/8Au7VWVf8AgW5a2f24/hJ+0T8NP2kNW+MngubWtT02WNJLPV9DDTSadbRxqrW00C7v3a4ZvmVo23bm+bdXC6L/AMFefjhpGmQWV7pnhDWLuFPL+13emzpPI/8AekWO4Vc+yqtAHAfBP9or4wfsQ/GqHwp4mvNQg0fTr6K11nwjqNz50EcLbdzQ/Myo3lssiyR/e+X7y19xf8Fl/wDk3Hwh/wBjZD/6RXdfHPwM/Z7+LX7dHx8h+IXjKyu4tBu76K61XxDdWvk2skMW1fIt1+XzG2x+X8u7b/F/tfa3/BX/AMO6jrv7M2hz2NpNew6d4nt7m8MMe/yIWtrqLe3+z5kka/8AAqAPz8/Z6/4J+/Ef9pbwB/wmHhS98N2+mfa5bLytXupUm3x7d3Cwt8vzLXpz/wDBHj41n/mJeCv/AAOn/wDkevJfgR+298Wf2dfBJ8K+DZdPi0c3ct9/pml+dJvdVVvm3fd/drXov/D1n9oP/nvoH/gj/wDsqBWP2c8L6SPD/hvStMz5n2O1itv++I1X/wBlr+dP4B6p8R9E+I2l3fwoF+fGhjm+x/2Ta/ap9nlt5m2Pa3/LPd/DX7YfsE/GXx38d/gSfFfj+zjg1KbVbi3s5obY2yXVsqx7ZAv/AF0Mq5/6Z1+af/BMrw5q+h/treHbPU9Nu7O7s7fUI7iGaJk8h1tJEbd/d+b5aBlL4p/tI/th+BdDH/Cc674z8LWWo7raOa70tLDzH25KxzLCrK23+626vXP+CW/7Jmj/ABG1u3+Muv69a6kdDv2+x6FDKzTx3a/Ms91u+7/DIq/Nu4bd8u2v0p+O3wV0H9oP4W654K8SQn7FqCYiusDzLScf6ueP/aVv++huU/K1fj38E/HfxB/4J6ftL3uka/puoTab5/2HWdOtYmdNRtN37u5t/wCFmX70f+8y/LuagVj6Y/4LVeFdRuvDfws8RwRZ0ezu9QsLiX/nnNOsMkf/AH0tvN/3zXuP/BLPxtpPiX9kXQtIspozqPh28vLHUIOjo73Mk6Mw/wBqOVfm/wB7+7Xuvxp+EHh39pP4Tap4P8QxyjTdVt0khm8vZNaTfeimVW6Mpxwf9pW71+Pes/DD9o7/AIJ6eP73WdFiv49M+SKTXdNtmutJvod3yrMrLtX/AHZNrL821v4qBn1f+1D+xD+0T8Vvjn4o8U+E/HdtZeG7ySKTTrObxBeW3kKsMa7fLjj2r8yt92vkr4FeJ/id4B/bO8HeCtf8ba1e3mneLrfR9Qi/ti5nt5NtwsUy/M3zK3zfeWu91X/gr58atY0afTrLR/COmalKnl/2jaWU7yI/96OOSZlz/vK1dD+xT+xl8U/iL8e7P4w/EWyv/Dmn2erf25JLrFt5F9qt5u835Yfl2p5nzMzKq/3P9kA9u/4LP/8AJEvAH/Yyf+2s1ei/8EoXz+x5pP8A2Fb7/wBGVwv/AAWO0TUdW+BPg6ays5r2G08QZuDDEz7N1tKqs23p81eg/wDBK3TrzTf2QtE+2QywmXUb2WPzo9hdPM27v/HWoFY/KD4geONS+Gf7XvjHxVo3lS6xpHjbUL6382PennJfSMu5fl3L8te363/wVq+Pmu6fNp1kPDejXkp8uO803SHadD7LLJIp/wC+axvB3g/WLD/gphDaTaZqEU//AAsea6x9mb/U/bmm8z/d8v5t391q/cRYI06RgfhQFj8df2OP2GfiT8ZvjFY/En4p6bqGnaDBqKaxeS+Iomju9YuA3mKnkyfNsZtu5mXbt+Vd38P0/wD8Fkv+TXvDn/Y32n/pLeV94V8O/wDBXbw7qOv/ALL+lSabp91exaf4ntbu8+yRM5gh+z3MfmNt/h3SRr/wJaBn5z/s4fsG/EH9qPwXfeKfCd5oEOnWmovpsn9r3MsMnmrHHJ91Y2+XbIteuf8ADnj41/8AQS8Ff+B0/wD8j1498Av2zPiz+zP4SvfDfg37BDpt3fvfyf2jpnnP5zRxo3zbvlXbGtenD/gqr+0S3SbRf/BF/wDZUCsfsF8LfC134F+F/g/w3e3f2680fSLSwuLr/ns8UKxs3P8AeZc119fMP7Avxw+IPx8+Dt94l+ItnFZXo1V7bT5obFrVLq2WOP51Dfe/eGRdy/3a+nqBhRRRQAUUUUAFFFFABRRRQBWh+SrNQzdalHSgBaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAqhPpNldTebNaW0svrLEpNX6KACiiigAooooAKKKKACiiigAooooAz7fRNPtLjzobO1hn/wCekUSq38q0KKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP//Z";
 const TELA = { id: "tela", nome: "Tela grande", papel: "Acompanhamento em tela grande", pode: {} };
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -13314,8 +13329,10 @@ const ANDROID = typeof window.Android !== "undefined";
 let _db;
 function db() {
   return _db || (_db = new Promise((ok, err) => {
-    const q = indexedDB.open("triagemos", 1);
-    q.onupgradeneeded = () => { const d = q.result; d.createObjectStore("os", { keyPath: "id" }); d.createObjectStore("fotos"); d.createObjectStore("kv"); };
+    const q = indexedDB.open("triagemos", 2);
+    q.onupgradeneeded = () => { const d = q.result; const tem = n => d.objectStoreNames.contains(n);
+      if (!tem("os")) d.createObjectStore("os", { keyPath: "id" }); if (!tem("fotos")) d.createObjectStore("fotos"); if (!tem("kv")) d.createObjectStore("kv");
+      if (!tem("relatorios")) d.createObjectStore("relatorios", { keyPath: "id" }); };
     q.onsuccess = () => ok(q.result); q.onerror = () => err(q.error);
   }));
 }
@@ -13480,6 +13497,9 @@ async function puxar(forcar) {
       OS.set(m.id, registro(m)); await osPut(limpo(m));
       SYNC.sha[it.path] = it.sha; mudou = true;
       if (loc && !pendente && localMaisNovo(loc, rem)) enfileirar({ t: "os", id: m.id });
+    } else if (/^relatorios\/.+\.json$/.test(it.path) && SYNC.sha[it.path] !== it.sha) {
+      const b = await gh("/git/blobs/" + it.sha); if (b.ok) { const rem = JSON.parse(utf8b64((await b.json()).content)); const loc = (await relAll()).find(x => x.id === rem.id); if (!loc || (rem.upd || 0) >= (loc.upd || 0)) await relPut(rem); }
+      SYNC.sha[it.path] = it.sha;
     } else if (it.path === "equipe.json" && SYNC.sha[it.path] !== it.sha) {
       const b = await gh("/git/blobs/" + it.sha); if (b.ok) { NOMES = Object.assign({}, JSON.parse(utf8b64((await b.json()).content)).nomes || {}, NOMES_LOCAL()); await kvSet("nomes", NOMES); }
       SYNC.sha[it.path] = it.sha; mudou = true;
@@ -13499,6 +13519,7 @@ async function enviarFila() {
     if (it.t === "foto") await enviarFoto(it.p);
     else if (it.t === "os") await enviarOS(it.id);
     else if (it.t === "nomes") await enviarArquivo("equipe.json", JSON.stringify({ nomes: NOMES }, null, 1), "Equipe: nomes");
+    else if (it.t === "rel") { const r = (await relAll()).find(x => x.id === it.id); if (r) await enviarArquivo("relatorios/" + r.id + ".json", JSON.stringify(r), `Relatório gravado: ${r.titulo} ${r.per}${r.removido ? " (apagado)" : ""}`); }
     SYNC.fila.shift(); await syncSalvar(); syncUI();
   }
 }
@@ -14833,7 +14854,9 @@ function telaRel(m) {
     <div id="rprev" class="small" style="margin:10px 0"></div>
     <button class="btn p w" id="rver">👁️ Ver relatório / PDF</button>
     <div class="row" style="margin-top:8px"><button class="btn" id="rdocx">📄 Word</button><button class="btn" id="rcsv">📊 Excel</button><button class="btn" id="rzap">💬 Resumo</button></div>
-  </div>`;
+    <button class="btn g w" style="margin-top:8px" id="rgravar">💾 Gravar este relatório</button>
+  </div>
+  <div id="rgrav"></div>`;
   $$("[data-rt]", m).forEach(b => b.onclick = () => { REL.tipo = b.dataset.rt; render(); });
   $$("[data-rpav]", m).forEach(b => b.onclick = () => { REL.pav = b.dataset.rpav; render(); });
   const bind = (id, k) => { const el = $("#" + id, m); if (el) el.onchange = () => { REL[k] = el.value; prev(); }; };
@@ -14841,72 +14864,126 @@ function telaRel(m) {
   const prev = () => { const d = dadosRel(); const t = totais(d.lista); $("#rprev", m).innerHTML = `<b>${t.n}</b> OS · <b class="mono">${nf(t.area)}</b> m² · <b class="mono">${nf(t.massa)}</b> t${d.lista.length ? "" : " — nada nesse filtro"}`; };
   prev();
   $("#rver", m).onclick = () => abrirRel();
-  $("#rdocx", m).onclick = () => gerarDocx();
+  $("#rdocx", m).onclick = async () => { await gravarRelatorio(true); gerarDocx(); };
+  $("#rgravar", m).onclick = async () => { await gravarRelatorio(false); listaGravados($("#rgrav", m)); };
+  listaGravados($("#rgrav", m));
   $("#rcsv", m).onclick = () => gerarCSV();
   $("#rzap", m).onclick = () => compartilhar(resumoTexto());
 }
+/* RELCTX: quando abro um relatório GRAVADO, os dados vêm da cópia guardada (não mudam mais) */
+let RELCTX = null;
 function dadosRel() {
-  const d = dadosRel0(); if (REL.pav !== "todos") { d.lista = d.lista.filter(r => tipoDe(r.tri) === REL.pav); d.titulo += " — " + TIPOS[REL.pav].n; } return d;
+  if (RELCTX) return { lista: RELCTX.os.map(x => registro(JSON.parse(JSON.stringify(x)))), titulo: RELCTX.titulo, per: RELCTX.per, tipo: RELCTX.tipo, enc: RELCTX.enc, gravado: RELCTX };
+  const d = dadosRel0(); if (REL.pav !== "todos") { d.lista = d.lista.filter(r => tipoDe(r.tri) === REL.pav); d.titulo += " — " + TIPOS[REL.pav].n; }
+  d.tipo = REL.tipo; d.enc = encarregadoRel(); return d;
 }
 function dadosRel0() {
   const all = [...OS.values()].filter(r => r._st !== "cancelada");
   if (REL.tipo === "rds") { let l = seqDoDia(REL.dia); if (REL.quem !== "todos") l = l.filter(r => r.criado.por === REL.quem); return { lista: l, titulo: "Vistoria Prévia de Pavimentação — Regional Metropolitana", per: brDia(REL.dia) }; }
-  if (REL.tipo === "pend") return { lista: all.filter(r => r._st === "triada" || r._st === "programada").sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "") || a.tri.dia.localeCompare(b.tri.dia)), titulo: "OS pendentes de execução — Pavimentação Regional Metropolitana", per: "posição em " + brDia(isoDia()) };
+  if (REL.tipo === "pend") return { lista: all.filter(r => r._st === "triada" || r._st === "programada").sort((a, b) => (a.tri.end?.bairro || "").localeCompare(b.tri.end?.bairro || "") || a.tri.dia.localeCompare(b.tri.dia)), titulo: "OS pendentes de execução — Regional Metropolitana", per: "posição em " + brDia(isoDia()) };
   const dentro = d => d && d >= REL.de && d <= REL.ate;
-  if (REL.tipo === "exec") return { lista: all.filter(r => r._st === "executada" && dentro(r.exec.data)).sort((a, b) => a.exec.data.localeCompare(b.exec.data)), titulo: "OS executadas — Pavimentação Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
-  return { lista: all.filter(r => dentro(r.tri.dia) || dentro(r.prog?.data) || dentro(r.exec?.data)).sort((a, b) => a.tri.dia.localeCompare(b.tri.dia)), titulo: "Acompanhamento de OS — Pavimentação Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
+  if (REL.tipo === "exec") return { lista: all.filter(r => r._st === "executada" && dentro(r.exec.data)).sort((a, b) => a.exec.data.localeCompare(b.exec.data)), titulo: "OS executadas — Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
+  return { lista: all.filter(r => dentro(r.tri.dia) || dentro(r.prog?.data) || dentro(r.exec?.data)).sort((a, b) => a.tri.dia.localeCompare(b.tri.dia)), titulo: "Acompanhamento de OS — Regional Metropolitana", per: `${brDia(REL.de)} a ${brDia(REL.ate)}` };
 }
-const encarregadoRel = () => REL.tipo === "rds" && REL.quem !== "todos" ? nomePerfil(REL.quem) : "Estevam Marques";
+const encarregadoRel = () => RELCTX ? RELCTX.enc : (REL.tipo === "rds" && REL.quem !== "todos" ? nomePerfil(REL.quem) : "Estevam Marques") + " — Enc. Pavimentação";
+const tipoRel = () => RELCTX ? RELCTX.tipo : REL.tipo;
 
-async function abrirRel() {
-  const d = dadosRel(); const el = $("#rel"); const t = totais(d.lista);
+/* ---------- documento no padrão do ConfereOS (logo do cliente, títulos azul-marinho, faixas douradas) ---------- */
+async function abrirRel(snap) {
+  RELCTX = snap || null;
+  const d = dadosRel(); const el = $("#rel"); const t = totais(d.lista); const tp = tipoRel();
   document.body.classList.add("relmode"); window.scrollTo(0, 0);
-  const cab = `<div class="cab"><div class="k">RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — REGIONAL METROPOLITANA</div><h1>${esc(d.titulo)}</h1>
-    <div>Equipe de Asfalto — Regional Metropolitana · Encarregado: <b>${esc(encarregadoRel())}</b> · ${esc(d.per)}</div></div>`;
-  const res = `<div class="res"><div>OS<b>${t.n}</b></div><div>Área<b>${nf(t.area)} m²</b></div><div>Volume<b>${nf(t.vol, 3)} m³</b></div><div>CBUQ<b>${nf(t.massa)} t</b></div></div>
-    <div style="font-size:11px;color:#555;margin:-6px 0 10px">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t/m²) · caminhão ${CARGA} t → ${Math.ceil(t.massa / CARGA) || 0} carga(s)</div>`;
-  const porTipo = Object.entries(TIPOS).map(([k, v]) => [v, totais(d.lista.filter(r => tipoDe(r.tri) === k))]).filter(([, x]) => x.n);
-  let corpo = porTipo.length > 1 ? `<table class="lst"><tr><th>Pavimentação</th><th>OS</th><th>m²</th><th>t CBUQ</th></tr>${porTipo.map(([v, x]) => `<tr><td>${v.n}</td><td>${x.n}</td><td>${nf(x.area)}</td><td>${x.massa ? nf(x.massa) : "—"}</td></tr>`).join("")}</table>` : "";
-  if (REL.tipo === "rds") {
-    corpo += d.lista.map((r, i) => secaoRDS(r, i + 1)).join("") || "<p>Nenhuma triagem neste dia.</p>";
+  const tabRes = `<table class="dt"><thead><tr><th>OS</th><th>Área (m²)</th><th>Volume (m³)</th><th>CBUQ (t)</th><th>Cargas de ${CARGA} t</th></tr></thead><tbody>
+    ${Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? `<tr><td>${v.n}: ${x.n}</td><td>${nf(x.area)}</td><td>${x.vol ? nf(x.vol, 3) : "—"}</td><td>${x.massa ? nf(x.massa) : "—"}</td><td>${x.massa ? Math.ceil(x.massa / CARGA) : "—"}</td></tr>` : ""; }).join("")}
+    <tr class="tt"><td><b>Total: ${t.n} OS</b></td><td><b>${nf(t.area)}</b></td><td><b>${nf(t.vol, 3)}</b></td><td><b>${nf(t.massa)}</b></td><td><b>${Math.ceil(t.massa / CARGA) || 0}</b></td></tr></tbody></table>
+    <p class="nt">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t.</p>`;
+  let corpo = "";
+  if (tp === "rds") {
+    corpo += `<h2 class="d2">Resumo</h2>${tabRes}
+      <h2 class="d2">OS vistoriadas</h2><table class="dt"><thead><tr><th>Seq.</th><th>OS</th><th>Endereço</th><th>Bairro</th><th>Município</th><th>Medidas</th><th>m²</th><th>t</th><th>Código</th></tr></thead><tbody>
+      ${d.lista.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.os)}</b></td><td>${esc(endTxt(r.tri.end, 1))}</td><td>${esc(r.tri.end?.bairro || "a confirmar")}</td><td>${esc(r.tri.end?.mun || "a confirmar")}</td><td>${esc((r.tri.trechos || []).map(x => `${x.c} x ${x.l}`).join(" + ") || "—")}</td><td>${nf(r._c.area)}</td><td>${r._c.massa ? nf(r._c.massa, 3) : "—"}</td><td>${esc(r.tri.servico)}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma triagem neste dia.</td></tr>`}</tbody></table>
+      <h2 class="d2">Detalhe por OS</h2>${d.lista.map((r, i) => secaoRDS(r, i + 1)).join("")}`;
     const pend = d.lista.flatMap(r => duplicatas(r).map(x => `OS ${r.os}: possível duplicidade — ${dupTxt(x)}`).concat(agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`)));
-    corpo += `<div class="sec"><h2>Pendências e alertas</h2>${pend.length ? "<ul style='margin:0;padding-left:18px'>" + pend.map(p => `<li>${esc(p)}</li>`).join("") + "</ul>" : "Sem pendências."}</div>`;
+    corpo += `<h2 class="d2">Pendências e alertas</h2>${pend.length ? `<ul class="al2">${pend.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : `<p class="nt">Sem pendências.</p>`}`;
   } else {
     const porSt = ["triada", "programada", "executada"].map(s => [s, totais(d.lista.filter(r => r._st === s))]);
-    corpo += `<table class="lst"><tr><th>Situação</th><th>OS</th><th>m²</th><th>t</th></tr>${porSt.map(([s, x]) => `<tr><td>${ST_NOME[s]}</td><td>${x.n}</td><td>${nf(x.area)}</td><td>${nf(x.massa)}</td></tr>`).join("")}</table>`;
-    if (REL.tipo !== "acomp") { const g = {}; d.lista.forEach(r => { const k = REL.tipo === "exec" ? "Equipe " + (r.exec.equipe || r.prog?.equipe || "?") : (r.tri.end?.bairro || "Bairro a confirmar"); (g[k] = g[k] || []).push(r); });
-      corpo += Object.entries(g).map(([k, l]) => { const x = totais(l); return `<h3 style="font-size:13px;margin:10px 0 4px">${esc(k)} — ${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t</h3>${tabelaOS(l)}`; }).join(""); }
-    else corpo += tabelaOS(d.lista);
+    corpo += `<h2 class="d2">Resumo</h2>${tabRes}<table class="dt"><thead><tr><th>Situação</th><th>OS</th><th>m²</th><th>t</th></tr></thead><tbody>${porSt.map(([s, x]) => `<tr><td>${ST_NOME[s]}</td><td>${x.n}</td><td>${nf(x.area)}</td><td>${nf(x.massa)}</td></tr>`).join("")}</tbody></table>`;
+    if (tp !== "acomp") { const g = {}; d.lista.forEach(r => { const k = tp === "exec" ? "Equipe " + (r.exec?.equipe || r.prog?.equipe || "?") : (r.tri.end?.bairro || "Bairro a confirmar"); (g[k] = g[k] || []).push(r); });
+      corpo += Object.entries(g).map(([k, l]) => { const x = totais(l); return `<h2 class="d2">${esc(k)} — ${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t</h2>${tabelaOS(l)}`; }).join(""); }
+    else corpo += `<h2 class="d2">OS do período</h2>` + tabelaOS(d.lista);
   }
-  el.innerHTML = `<div class="rds">${cab}${res}${corpo}<p class="rcred"><span class="emk" aria-hidden="true">EM</span> Triagem OS · Software desenvolvido por Estevam Marques · gerado em ${brHora(Date.now())} por ${esc(EU.nome)}</p></div>
-    <div id="relbar"><button class="btn" id="rvolta">‹ Voltar</button><button class="btn y" id="rpdf" style="flex:2">🖨️ Salvar PDF</button><button class="btn" id="rdoc2">📄 Word</button></div>`;
-  $("#rvolta").onclick = fecharRel; $("#rdoc2").onclick = gerarDocx;
-  $("#rpdf").onclick = async () => { await Promise.all($$("#rel img").map(i => i.complete ? 0 : new Promise(ok => { i.onload = i.onerror = ok; }))); const nome = nomeArq("pdf").replace(".pdf", ""); if (ANDROID) window.Android.print(nome); else window.print(); };
+  const g = d.gravado;
+  el.innerHTML = `<div class="rds"><div class="pg">
+    <div class="cli2"><span>Cliente</span><img src="${LOGO_CLIENTE}" alt="Logo Iguá Sergipe"></div>
+    <p class="eyebrow2">RDS · Relatório Diário de Serviços · Regional Metropolitana</p>
+    <h1 class="dh">${esc(d.titulo)}</h1>
+    <p class="ds">Equipe de Asfalto — Regional Metropolitana · Encarregado: <b>${esc(d.enc)}</b> · ${esc(d.per)}${g ? ` · gravado em ${brHora(g.em)} por ${esc(g.porNome)}` : ` · gerado em ${brHora(Date.now())}`}</p>
+    ${corpo}
+    <p class="rcred"><span class="emk" aria-hidden="true">EM</span> Triagem OS · Software desenvolvido por Estevam Marques</p></div></div>
+    <div id="relbar"><button class="btn" id="rvolta">‹ Voltar</button><button class="btn y" id="rpdf" style="flex:2">🖨️ Salvar PDF</button><button class="btn" id="rdoc2">📄 Word</button>${g ? "" : '<button class="btn g" id="rgrava">💾 Gravar</button>'}</div>`;
+  $("#rvolta").onclick = fecharRel; $("#rdoc2").onclick = async () => { if (!g) await gravarRelatorio(true); gerarDocx(); };
+  const gb = $("#rgrava"); if (gb) gb.onclick = () => gravarRelatorio(false);
+  $("#rpdf").onclick = async () => {
+    if (!g) await gravarRelatorio(true);
+    await Promise.all($$("#rel img").map(i => i.complete ? 0 : new Promise(ok => { i.onload = i.onerror = ok; })));
+    const nome = nomeArq("pdf").replace(".pdf", ""); if (ANDROID) window.Android.print(nome); else window.print();
+  };
   for (const i of $$("#rel img[data-full]")) fotoURL(i.dataset.full).then(u => { if (u) i.src = u; });
-  for (const i of $$("#rel img[data-mapa]")) { const r = OS.get(i.dataset.mapa); miniMapa(r.tri.lat, r.tri.lng, "OS " + r.os).then(u => { if (u) i.src = u; }); }
+  for (const i of $$("#rel img[data-mapa]")) { const r = d.lista.find(x => x.id === i.dataset.mapa); if (r) miniMapa(r.tri.lat, r.tri.lng, "OS " + r.os).then(u => { if (u) i.src = u; }); }
 }
-function fecharRel() { document.body.classList.remove("relmode"); $("#rel").innerHTML = ""; }
+function fecharRel() { document.body.classList.remove("relmode"); $("#rel").innerHTML = ""; RELCTX = null; if (VIEW === "rel") render(); }
 function secaoRDS(r, n) {
   const T = r.tri, c = r._c;
-  const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}${r.exec.equipe ? " — equipe " + r.exec.equipe : ""}`;
+  const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : r._st === "executada" ? `Executado em ${brDia(r.exec.data)}${r.exec.equipe ? " — equipe " + r.exec.equipe : ""}` : "Cancelada";
   const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
-  return `<div class="sec"><h2>Sequência ${n} — OS ${esc(r.os)} — ${esc(endTxt(T.end, 1))}</h2><table>
-    <tr><td>Bairro / Município</td><td>${esc(T.end?.bairro || "a confirmar")} — ${esc(T.end?.mun || "município a confirmar")}/SE</td></tr>
-    <tr><td>Coordenadas</td><td>${T.lat != null ? `<a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)} — 🧭 abrir no Google Maps</a>` : "—"}</td></tr>
-    <tr><td>Pavimentação</td><td>${TIPOS[tipoDe(T)].n}</td></tr>
-    <tr><td>Medidas</td><td>${(T.trechos || []).map(t => `${t.c} × ${t.l} m`).join(" + ") || "—"}${num(T.areaOS) ? ` (total da OS: ${nf(num(T.areaOS))} m²)` : ""}</td></tr>
-    <tr><td>${SERV[T.servico].cbuq ? "Área / Volume / Massa" : "Área"}</td><td><b>${nf(c.area)} m²</b>${SERV[T.servico].cbuq ? ` · ${nf(c.volume, 3)} m³ · <b>${nf(c.massa)} t</b> (esp. 3 cm)` : ""}</td></tr>
-    <tr><td>Serviço</td><td>${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</td></tr>
-    <tr><td>Situação</td><td>${esc(sit)}</td></tr>
-    <tr><td>Triagem</td><td>${esc(nomePerfil(r.criado.por))} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}</td></tr>
-    <tr><td>Vida útil</td><td>${esc(vidaTxt(r))}</td></tr>
-    ${obs ? `<tr><td>Observação</td><td>${esc(obs)}</td></tr>` : ""}</table>
-    <div class="ims">${(T.fotos || []).slice(0, 3).map(f => `<img data-full="${f.p}">`).join("")}${T.lat != null ? `<a href="${navUrl(T.lat, T.lng)}"><img data-mapa="${r.id}"></a>` : ""}</div></div>`;
+  const em = T.emFoto || r.criado.em;
+  return `<div class="cf"><div class="cfh"><b>Sequência ${n} — OS ${esc(r.os)}</b>${T.lat != null ? `<a class="maplk" href="${navUrl(T.lat, T.lng)}">📍 mapa</a>` : ""}<span>${esc(endTxt(T.end, 1))} · ${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}</span></div>
+    <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
+      <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
+      <p><b>Área:</b> ${nf(c.area)} m²${SERV[T.servico].cbuq ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
+      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
+      <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
+      ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
+      <p><b>Triagem:</b> ${esc(nomePerfil(r.criado.por))} · <b>Vida útil:</b> ${esc(vidaTxt(r))}</p>
+      ${obs ? `<p><b>Observação:</b> ${esc(obs)}</p>` : ""}</div>
+    <div class="cfc"><h4>Fotos e localização</h4><div class="gal">${(T.fotos || []).slice(0, 3).map(f => `<img data-full="${f.p}">`).join("")}${T.lat != null ? `<a href="${navUrl(T.lat, T.lng)}"><img data-mapa="${r.id}"></a>` : ""}</div></div></div></div>`;
 }
 function tabelaOS(l) {
-  return `<table class="lst"><tr><th>OS</th><th>Endereço</th><th>Bairro</th><th>Tipo</th><th>m²</th><th>t</th><th>Situação</th><th>Triada</th><th>Program.</th><th>Execut.</th><th>Vida útil</th><th>Conf.</th></tr>${l.map(r => `<tr><td>${esc(r.os)}</td><td>${esc(endTxt(r.tri.end, 1))}</td><td>${esc(r.tri.end?.bairro || "")}</td><td>${TIPOS[tipoDe(r.tri)].n}</td><td>${nf(r._c.area)}</td><td>${nf(r._c.massa)}</td><td>${ST_NOME[r._st]}</td><td>${brDia(r.tri.dia).slice(0, 5)}</td><td>${ativa(r.prog) ? esc(r.prog.equipe) + " " + brDia(r.prog.data).slice(0, 5) : ""}</td><td>${ativa(r.exec) ? brDia(r.exec.data).slice(0, 5) : ""}</td><td>${duracao(vida(r).ms)}${vida(r).feita ? "" : " ⏳"}</td><td>${ativa(r.conf) ? (r.conf.ok ? "✔" : "⚠") : ""}</td></tr>`).join("")}</table>`;
+  return `<table class="dt"><thead><tr><th>OS</th><th>Endereço</th><th>Bairro</th><th>Tipo</th><th>m²</th><th>t</th><th>Situação</th><th>Triada</th><th>Program.</th><th>Execut.</th><th>Vida útil</th><th>Conf.</th></tr></thead><tbody>${l.map(r => `<tr><td><b>${esc(r.os)}</b></td><td>${esc(endTxt(r.tri.end, 1))}</td><td>${esc(r.tri.end?.bairro || "")}</td><td>${TIPOS[tipoDe(r.tri)].n}</td><td>${nf(r._c.area)}</td><td>${nf(r._c.massa)}</td><td>${ST_NOME[r._st]}</td><td>${brDia(r.tri.dia).slice(0, 5)}</td><td>${ativa(r.prog) ? esc(r.prog.equipe) + " " + brDia(r.prog.data).slice(0, 5) : ""}</td><td>${ativa(r.exec) ? brDia(r.exec.data).slice(0, 5) : ""}</td><td>${duracao(vida(r).ms)}${vida(r).feita ? "" : " ⏳"}</td><td>${ativa(r.conf) ? (r.conf.ok ? "✔" : "⚠") : ""}</td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------- relatórios GRAVADOS: ficam no celular e no servidor, não se perdem ---------- */
+const relAll = () => idb("relatorios", "readonly", s => s.getAll());
+const relPut = r => idb("relatorios", "readwrite", s => s.put(r));
+async function gravarRelatorio(silencioso) {
+  if (RELCTX) return RELCTX;
+  const d = dadosRel(); if (!d.lista.length) { if (!silencioso) aviso("Relatório vazio: nada para gravar"); return null; }
+  const os = d.lista.map(limpo); const assin = JSON.stringify(os.map(o => [o.id, o.upd]));
+  const chave = [REL.tipo, d.per, REL.pav, REL.quem].join("|");
+  const ja = (await relAll()).filter(x => x.chave === chave && !x.removido).sort((a, b) => b.em - a.em)[0];
+  if (ja && ja.assin === assin) { if (!silencioso) aviso("✅ Esse relatório já está gravado"); return ja; }
+  const t = totais(d.lista);
+  const rel = { id: uid(), chave, assin, versao: ja ? (ja.versao || 1) + 1 : 1, tipo: REL.tipo, titulo: d.titulo, per: d.per, enc: d.enc, filtros: { dia: REL.dia, de: REL.de, ate: REL.ate, quem: REL.quem, pav: REL.pav }, em: Date.now(), por: EU.id, porNome: EU.nome, n: t.n, area: t.area, massa: t.massa, os, upd: Date.now() };
+  await relPut(rel); enfileirar({ t: "rel", id: rel.id });
+  aviso(`💾 Relatório gravado${rel.versao > 1 ? ` (versão ${rel.versao})` : ""}`);
+  return rel;
+}
+async function listaGravados(box) {
+  const l = (await relAll()).filter(x => !x.removido).sort((a, b) => b.em - a.em);
+  const nomeT = { rds: "📋 RDS", acomp: "📊 Acompanhamento", pend: "🚧 Falta fazer", exec: "✅ Executadas" };
+  box.innerHTML = `<div class="card"><h2>🗂️ Relatórios gravados <span class="r">${l.length}</span></h2>
+    <div class="small muted" style="margin:-4px 0 6px">Todo relatório que vira PDF ou Word fica gravado aqui e no servidor, do jeito que saiu. Não se perde.</div>
+    ${l.map(x => `<div class="achado" style="align-items:center"><span style="flex:1"><b>${nomeT[x.tipo] || x.tipo} · ${esc(x.per)}</b>${x.versao > 1 ? ` <span class="tag pend">v${x.versao}</span>` : ""}<br><span class="small muted">${esc(x.titulo)}<br>${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t · gravado ${brHora(x.em)} por ${esc((x.porNome || "").split(" ")[0])}</span></span>
+      <button class="btn sm" data-relab="${x.id}" style="flex:none">Abrir</button>${privado() ? `<button class="btn sm r" data-reldel="${x.id}" style="flex:none">🗑</button>` : ""}</div>`).join("") || '<div class="muted small">Nenhum ainda. Gere um relatório e toque em PDF, Word ou 💾 Gravar.</div>'}</div>`;
+  $$("[data-relab]", box).forEach(b => b.onclick = async () => { const r = (await relAll()).find(x => x.id === b.dataset.relab); if (r) abrirRel(r); });
+  $$("[data-reldel]", box).forEach(b => b.onclick = async () => {
+    const r = (await relAll()).find(x => x.id === b.dataset.reldel); if (!r) return;
+    if (prompt(`Para apagar "${r.per}" digite APAGAR:`) !== "APAGAR") return;
+    r.removido = true; r.upd = Date.now(); await relPut(r); enfileirar({ t: "rel", id: r.id }); listaGravados(box);
+  });
 }
 function nomeArq(ext) {
+  if (RELCTX) return `${{ rds: "RDS", acomp: "Acompanhamento", pend: "Pendentes", exec: "Executadas" }[RELCTX.tipo]}_${RELCTX.per.replace(/[^\dA-Za-z]+/g, "-").replace(/^-|-$/g, "")}.${ext}`;
   const d = REL.tipo === "rds" ? brDia(REL.dia).replace(/\//g, "-") : REL.tipo === "pend" ? brDia(isoDia()).replace(/\//g, "-") : `${brDia(REL.de).replace(/\//g, "-")}_a_${brDia(REL.ate).replace(/\//g, "-")}`;
   return `${{ rds: "RDS", acomp: "Acompanhamento", pend: "Pendentes", exec: "Executadas" }[REL.tipo]}_${d}.${ext}`;
 }
@@ -14966,17 +15043,18 @@ async function gerarDocx() {
   const d = dadosRel(); const t = totais(d.lista); const media = [], links = []; let body = ""; _imgN = 0;
   const addLink = url => { const rid = "rIdL" + (links.length + 1); links.push({ rid, url }); return rid; };
   const addImg = async (src, link) => { const j = await imgJPG(src); if (!j) return ""; const rid = "rIdImg" + (media.length + 1); media.push({ rid, n: `media/img${media.length + 1}.jpg`, d: j.u8 }); const w = 200; return wImg(rid, w, Math.round(w * j.r), link); };
-  body += wP("RDS — RELATÓRIO DIÁRIO DE SERVIÇOS — Regional Metropolitana", { b: 1, sz: 9, cor: "555555" });
-  body += wP(d.titulo, { b: 1, sz: 16, depois: 40 });
-  body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${encarregadoRel()} · ${d.per}`, { sz: 10, depois: 120 });
+  { const lj = await imgJPG(LOGO_CLIENTE, 400); if (lj) { const rid = "rIdLogo"; media.push({ rid, n: "media/logo.jpg", d: lj.u8 }); body += `<w:p><w:pPr><w:jc w:val="right"/></w:pPr>${wImg(rid, 120, Math.round(120 * lj.r))}</w:p>`; } }
+  body += wP("RDS · RELATÓRIO DIÁRIO DE SERVIÇOS · REGIONAL METROPOLITANA", { b: 1, sz: 8.5, cor: "9A6A08" });
+  body += wP(d.titulo, { b: 1, sz: 16, cor: "0B2545", depois: 40 });
+  body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${d.enc} · ${d.per}`, { sz: 10, cor: "5A6780", depois: 120 });
   body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "3 cm (2,4 t/m³ → 0,072 t/m²)"]]);
-  if (REL.tipo === "rds") {
+  if (tipoRel() === "rds") {
     let n = 0;
     for (const r of d.lista) {
       n++; const T = r.tri, c = r._c;
       const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}`;
       const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
-      body += wP(`Sequência ${n} — OS ${r.os} — ${endTxt(T.end, 1)}`, { b: 1, sz: 11.5, cor: "FFFFFF", fundo: "1F2A1D", antes: 240, depois: 60 });
+      body += wP(`Sequência ${n} — OS ${r.os} — ${endTxt(T.end, 1)}`, { b: 1, sz: 11.5, cor: "FFFFFF", fundo: "0B2545", antes: 240, depois: 60 });
       body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(SERV[T.servico].cbuq ? [["Volume", nf(c.volume, 3) + " m³"], ["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}`], ["Observação", obs || "—"]]);
       let ims = "";
       for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) ims += await addImg(u); }
@@ -14986,7 +15064,7 @@ async function gerarDocx() {
       if (lk) body += wLink(lk, "🧭 Navegar até a OS no Google Maps");
     }
     const pend = d.lista.flatMap(r => duplicatas(r).map(x => `OS ${r.os}: possível duplicidade — ${dupTxt(x)}`).concat(agentesDaOS(r).filter(a => a.ag !== "cnf").map(a => `OS ${r.os}: ${a.t}`)));
-    body += wP("Pendências e alertas", { b: 1, sz: 12, antes: 240 });
+    body += wP("Pendências e alertas", { b: 1, sz: 12, cor: "0B2545", antes: 240 });
     body += (pend.length ? pend : ["Sem pendências."]).map(p => wP("• " + p, { sz: 10 })).join("");
   } else {
     body += wP("", {});
