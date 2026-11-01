@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 15;                       // versão da interface (sobe a cada publicação)
+const APP_V = 18;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13366,6 +13366,7 @@ function calcular(tri) {
   const areaOS = num(tri.areaOS);
   if (areaOS > 0) area = areaOS;                        // regra: totais da OS prevalecem
   const sv = SERV[tri.servico] || SERV["613287"];
+  // asfalto: m², m³ (3 cm) e t de CBUQ · calçada e paralelo: só m²
   return { area, areaMedida, volume: sv.cbuq ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
 }
 const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) p.push(e.bairro || "bairro a confirmar", e.mun || "município a confirmar"); return p.join(", "); };
@@ -13972,6 +13973,35 @@ async function coordPeloEnderecoDaFoto(c) {
   return null;
 }
 
+/* coordenada pelos campos de endereço da OS (rua, nº, bairro, município) */
+async function coordDaOS(end) {
+  if (!end || !navigator.onLine) return null;
+  const rua = [end.rua, end.num].filter(Boolean).join(", ");
+  const tent = [[rua, end.bairro, end.mun], [rua, end.mun], [end.bairro, end.mun]].map(a => a.filter(Boolean).join(", ")).filter((x, i, a) => x && a.indexOf(x) === i);
+  for (let i = 0; i < tent.length; i++) {
+    const g = await coordDeEndereco(tent[i]); await new Promise(ok => setTimeout(ok, 1100));   // o OpenStreetMap pede 1 busca por segundo
+    if (g) return Object.assign(g, { aprox: !end.rua || tent[i] === [end.bairro, end.mun].filter(Boolean).join(", "), busca: tent[i] });
+  }
+  return null;
+}
+/* corrige o ponto das OS que ficaram com o GPS do cadastro (em casa) ou sem ponto: usa o endereço de cada uma */
+let _corrigindo = false;
+async function corrigirMapas(manual) {
+  if (_corrigindo || !navigator.onLine) return;
+  const l = [...OS.values()].filter(r => r._st !== "cancelada" && (r.tri.end?.rua || r.tri.end?.bairro) && (r.tri.lat == null || !pontoConfiavel(r)) && !r.tri.geoPeloEnd);
+  if (!l.length) { if (manual) aviso("✅ Todos os mapas já estão pelo endereço/foto certos"); return; }
+  _corrigindo = true; let ok = 0;
+  try {
+    for (let i = 0; i < l.length; i++) {
+      const r = l[i]; aviso(`🗺️ Ajustando mapas pelo endereço: ${i + 1} de ${l.length} (OS ${esc(r.os)})`, 3000);
+      const g = await coordDaOS(r.tri.end); if (!g) continue;
+      r.tri.lat = g.lat; r.tri.lng = g.lng; r.tri.origemCoord = "endereco"; r.tri.geoAprox = !!g.aprox; r.tri.geoPeloEnd = 1; r.tri.upd = Date.now();
+      await salvarOS(r, "editada", "mapa ajustado pelo endereço" + (g.aprox ? " (aproximado)" : "")); ok++;
+    }
+  } finally { _corrigindo = false; }
+  aviso(`✅ ${ok} mapa(s) ajustado(s) pelo endereço${l.length - ok ? ` · ${l.length - ok} sem endereço achado no mapa` : ""}`, 6000); render();
+}
+
 /* GPS escrito em XMP (alguns apps gravam só aí) */
 function lerXmpGps(u8) {
   try {
@@ -14148,8 +14178,8 @@ async function abrirOS(id) {
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
     <div class="muted small">${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
-    <div class="calc">${c.massa || SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
-    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Sem CBUQ"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
+    <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
+    <div class="small muted" style="margin:4px 2px 0">${SERV[T.servico].cbuq ? "Espessura considerada 3 cm · 2,4 t/m³" : "Só m²"}${c.massa > CARGA ? ` · <b style="color:var(--bad)">acima de ${CARGA} t: ${Math.ceil(c.massa / CARGA)} cargas</b>` : ""}</div>
     ${r._st !== "cancelada" ? dupHTML(duplicatas(r), false, r) : ""}
     ${T.lat != null && !pontoConfiavel(r) ? `<div class="alert w small">📍 ${T.origemCoord === "endereco" ? "Ponto aproximado pelo endereço escrito na foto." : "Esse ponto veio do GPS do celular na hora do cadastro, não da foto."} Pra corrigir: <b>Editar triagem</b> e pôr as fotos de novo, ou digitar a coordenada.</div>` : ""}
     ${ag.map(a => `<div class="alert ${a.n >= 2 ? "b" : "w"}">${a.ic} ${esc(a.t)}</div>`).join("")}
@@ -14316,6 +14346,7 @@ function abrirForm(r, op = {}) {
     <label class="f">Localização</label>
     <div class="loc" id="floc"></div>
     <div class="row" style="margin-top:6px"><button class="btn sm" id="fgps">📍 Usar meu GPS agora</button><button class="btn sm" id="fcoord">✍️ Digitar coordenada</button></div>
+    <button class="btn sm w" style="margin-top:6px" id="fpeloend">🗺️ Pôr o mapa no endereço digitado</button>
     <div class="grid2" style="margin-top:4px">
       <div style="grid-column:1/3"><label class="f">Rua</label><input class="in" id="frua" value="${esc(T.end.rua || "")}" placeholder="Preenche sozinho pela coordenada"></div>
       <div><label class="f">Nº (imóvel)</label><input class="in" id="fnum" value="${esc(T.end.num || "")}"></div>
@@ -14337,7 +14368,7 @@ function abrirForm(r, op = {}) {
     <label class="f">m² informado na OS (opcional)</label>
     <input class="in mono" id="faos" inputmode="decimal" value="${T.areaOS ? esc(String(T.areaOS).replace(".", ",")) : ""}" placeholder="Se o sistema já trouxer o total">
     <div class="calc" id="fcalc"></div>
-    <div class="small muted" style="margin:4px 2px 0">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t</div>
+    <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
     <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
@@ -14357,9 +14388,9 @@ function abrirForm(r, op = {}) {
   function calc() {
     T.areaOS = num($("#faos", s).value); T.servico = $("#fserv", s).value;
     const c = calcular(T);
-    const asf = SERV[T.servico].cbuq;
+    const asf = SERV[T.servico].cbuq, tp = tipoDe(T);
     $("#fcalc", s).innerHTML = (asf ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>`
-      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`) +
+      : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tp].n.toLowerCase()}</span></div>`) +
       (c.massa > CARGA ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Acima de ${CARGA} t: precisa de ${Math.ceil(c.massa / CARGA)} cargas</div>` : "") +
       (c.diverge ? `<div style="grid-column:1/4;color:#f2b705;font-size:12.5px">⚠ Medidas somam ${nf(c.areaMedida)} m² — vale o total da OS</div>` : "") +
       "";
@@ -14370,7 +14401,7 @@ function abrirForm(r, op = {}) {
     if (l != null) { T.trechos[l].l = e.target.value; const sp = e.target.parentNode.children[3]; const t = T.trechos[l]; sp.textContent = num(t.c) && num(t.l) ? nf(num(t.c) * num(t.l)) : ""; calc(); }
     if (e.target.id === "faos") calc();
     if (e.target.id === "fos") checaOS();
-    if (["frua", "fnum", "ffach", "fmun"].includes(e.target.id)) checaDup();
+    if (["frua", "fnum", "ffach", "fmun", "fbai"].includes(e.target.id)) { checaDup(); clearTimeout(tmEnd); tmEnd = setTimeout(() => mapaPeloEndereco(false), 1800); }
   });
   s.addEventListener("click", e => { const x = e.target.closest("[data-tx]"); if (x) { T.trechos.splice(+x.dataset.tx, 1); if (!T.trechos.length) T.trechos.push({ c: "", l: "" }); desenhaTrechos(); } });
   function opcoesServ(tp, sel) {
@@ -14425,7 +14456,7 @@ function abrirForm(r, op = {}) {
     if (x.entulho != null) { T.entulho = x.entulho; $$("#fent button", s).forEach(b => b.classList.toggle("on", (b.dataset.v === "1") === x.entulho)); feito.push(x.entulho ? "com remoção" : "sem remoção"); }
     for (const [k, id] of [["rua", "frua"], ["num", "fnum"], ["bairro", "fbai"], ["mun", "fmun"]]) if (x[k]) { $("#" + id, s).value = x[k]; }
     if (x.rua) feito.push([x.rua, x.num, x.bairro, x.mun].filter(Boolean).join(", "));
-    calc(); checaOS();
+    calc(); checaOS(); if (x.rua || x.bairro) mapaPeloEndereco(false);
     $("#ftxtres", s).innerHTML = `<div class="alert ${feito.length ? "o" : "w"}" style="margin-bottom:0">${feito.length ? "✅ Lido: " + esc(feito.join(" · ")) + (x.os && !x.trechos.length && !x.areaOS ? "<br>Medidas não encontradas: preencha abaixo ou fale no áudio." : "") : "Não achei OS nem medidas nesse texto."}</div>`;
   }
   let tmTxt; $("#ftxt", s).addEventListener("input", () => { clearTimeout(tmTxt); tmTxt = setTimeout(lerColado, 400); });
@@ -14433,6 +14464,19 @@ function abrirForm(r, op = {}) {
   $("#fvoz", s).onclick = porVoz; $("#fvoz2", s).onclick = porVoz;
 
   // ---- fotos e localização
+  /* mapa acompanha o endereço quando não há coordenada confiável (foto/carimbo/digitada/GPS no local) */
+  let tmEnd;
+  async function mapaPeloEndereco(manual) {
+    const forte = LOC && ["foto", "carimbo", "manual"].includes(LOC.origem) || (LOC && LOC.origem === "gps" && LOC.agora);
+    if (forte && !manual) return;
+    const end = { rua: $("#frua", s).value.trim(), num: $("#fnum", s).value.trim(), bairro: $("#fbai", s).value.trim(), mun: $("#fmun", s).value.trim() };
+    if (!end.rua && !end.bairro) { if (manual) aviso("Preencha a rua e o bairro"); return; }
+    if (manual) aviso("🔎 Procurando o endereço no mapa…", 6000);
+    const g = await coordDaOS(end);
+    if (!g) { if (manual) aviso("Não achei esse endereço no mapa. Confira o nome da rua e do bairro, ou digite a coordenada."); return; }
+    LOC = { lat: g.lat, lng: g.lng, origem: "endereco" }; desenhaLoc(); checaDup();
+    aviso(`🗺️ Mapa no endereço${g.aprox ? " (aproximado, pelo bairro)" : ""}`);
+  }
   let LOC = T.lat != null ? { lat: T.lat, lng: T.lng, origem: T.origemCoord || "foto", acc: T.precisao } : null;
   function desenhaLoc() {
     $("#floc", s).innerHTML = LOC ? `<div class="c">${LOC.lat.toFixed(6)}, ${LOC.lng.toFixed(6)}</div><div class="small muted">${LOC.origem === "foto" ? "GPS gravado na foto" : LOC.origem === "carimbo" ? "lida do carimbo da foto" : LOC.origem === "endereco" ? "pelo endereço escrito na foto (confira no mapa)" : LOC.origem === "gps" ? "GPS do celular" + (LOC.acc ? ` (±${LOC.acc} m)` : "") : "digitada"} · <a href="${navUrl(LOC.lat, LOC.lng)}">🧭 navegar até aqui</a></div><a href="${navUrl(LOC.lat, LOC.lng)}" class="maplink"><img class="minimap" id="fmini" style="margin-top:8px" alt=""><span>🧭 Toque para navegar no Google Maps</span></a>`
@@ -14479,7 +14523,7 @@ function abrirForm(r, op = {}) {
             await definirLoc({ lat: f.lat, lng: f.lng, origem: "endereco" }, false);
             const c = f.carimbo; if (c.rua) { $("#frua", s).value = c.rua; $("#fnum", s).value = c.num || ""; } if (c.bairro) $("#fbai", s).value = c.bairro; if (c.mun) $("#fmun", s).value = c.mun;
             checaDup(); aviso(`📍 Localizado pelo endereço escrito na foto${c.geo?.aprox ? " (aproximado: bairro)" : ""}`, 5000);
-          } else { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc }, true, true); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
+          } else { await definirLoc({ lat: f.lat, lng: f.lng, origem: f.origem, acc: f.acc, agora: f.origem === "gps" ? 1 : 0 }, true, true); if (f.carimbo?.num && !$("#fnum", s).value) $("#fnum", s).value = f.carimbo.num; }
         }
         else if (distM([LOC.lat, LOC.lng], [f.lat, f.lng]) > 150) aviso(`⚠ Essa foto está a ${Math.round(distM([LOC.lat, LOC.lng], [f.lat, f.lng]))} m do ponto da OS`);
       } else if (!agora) aviso("📷 Não achei coordenada nessa foto: nem gravada no arquivo, nem escrita no carimbo. Veja abaixo o que o app leu.", 7000);
@@ -14511,7 +14555,8 @@ function abrirForm(r, op = {}) {
   }
   $("#fcam", s).onchange = e => { addFotos([...e.target.files], true); e.target.value = ""; };
   $("#fgal", s).onchange = e => { addFotos([...e.target.files], false); e.target.value = ""; };
-  $("#fgps", s).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível. Ligue a localização do celular."); definirLoc({ lat: g.lat, lng: g.lng, origem: "gps", acc: g.acc }); };
+  $("#fpeloend", s).onclick = () => mapaPeloEndereco(true);
+  $("#fgps", s).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível. Ligue a localização do celular."); definirLoc({ lat: g.lat, lng: g.lng, origem: "gps", acc: g.acc, agora: 1 }); };
   $("#fcoord", s).onclick = () => {
     const v = prompt("Cole a coordenada (ex.: -10.9123, -37.0531) ou um link do Google Maps:"); if (!v) return;
     const m = v.match(/(-?\d{1,2}[.,]\d+)\s*[, ;]\s*(-?\d{1,3}[.,]\d+)/); if (!m) return aviso("Coordenada inválida");
@@ -14534,7 +14579,7 @@ function abrirForm(r, op = {}) {
     T.areaOS = num($("#faos", s).value) || null;
     T.end = { rua: $("#frua", s).value.trim(), num: $("#fnum", s).value.trim(), numFachada: $("#ffach", s).value.trim(), bairro: $("#fbai", s).value.trim(), mun: $("#fmun", s).value.trim() };
     T.end.aConfirmar = !T.end.rua;
-    if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; }
+    if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; if (LOC.origem === "endereco") T.geoPeloEnd = 1; }
     T.obs = $("#fobs", s).value.trim();
     T.flags = { carro: $("#fcarro", s).checked, terra: $("#fterra", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
     // fotos novas: carimbo com OS + endereço + coordenada
@@ -14917,7 +14962,7 @@ async function abrirRel(snap) {
   const tabRes = `<table class="dt"><thead><tr><th>OS</th><th>Área (m²)</th><th>Volume (m³)</th><th>CBUQ (t)</th><th>Cargas de ${CARGA} t</th></tr></thead><tbody>
     ${Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? `<tr><td>${v.n}: ${x.n}</td><td>${nf(x.area)}</td><td>${x.vol ? nf(x.vol, 3) : "—"}</td><td>${x.massa ? nf(x.massa) : "—"}</td><td>${x.massa ? Math.ceil(x.massa / CARGA) : "—"}</td></tr>` : ""; }).join("")}
     <tr class="tt"><td><b>Total: ${t.n} OS</b></td><td><b>${nf(t.area)}</b></td><td><b>${nf(t.vol, 3)}</b></td><td><b>${nf(t.massa)}</b></td><td><b>${Math.ceil(t.massa / CARGA) || 0}</b></td></tr></tbody></table>
-    <p class="nt">Espessura considerada: 3 cm · densidade 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t.</p>`;
+    <p class="nt">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão de ${CARGA} t. Calçada e paralelo: só m².</p>`;
   let corpo = "";
   if (tp === "rds") {
     corpo += `<h2 class="d2">Resumo</h2>${tabRes}
@@ -14961,7 +15006,7 @@ function secaoRDS(r, n) {
   return `<div class="cf"><div class="cfh"><b>Sequência ${n} — OS ${esc(r.os)}</b>${T.lat != null ? `<a class="maplk" href="${navUrl(T.lat, T.lng)}">📍 mapa</a>` : ""}<span>${esc(endTxt(T.end, 1))} · ${esc(T.end?.bairro || "bairro a confirmar")} · ${esc(T.end?.mun || "município a confirmar")}</span></div>
     <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
       <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
-      <p><b>Área:</b> ${nf(c.area)} m²${SERV[T.servico].cbuq ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
+      <p><b>Área:</b> ${nf(c.area)} m²${c.volume ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ (3 cm)` : ""}${c.massa ? ` · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
       <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
       <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
       ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
@@ -15068,7 +15113,7 @@ async function gerarDocx() {
   body += wP("RDS · RELATÓRIO DIÁRIO DE SERVIÇOS · REGIONAL METROPOLITANA", { b: 1, sz: 8.5, cor: "9A6A08" });
   body += wP(d.titulo, { b: 1, sz: 16, cor: "0B2545", depois: 40 });
   body += wP(`Equipe de Asfalto — Regional Metropolitana · Encarregado: ${d.enc} · ${d.per}`, { sz: 10, cor: "5A6780", depois: 120 });
-  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "3 cm (2,4 t/m³ → 0,072 t/m²)"]]);
+  body += wTab([Object.assign(["Resumo", ""], { cab: 1 }), ["Nº de OS", String(t.n)], ...Object.entries(TIPOS).map(([k, v]) => { const x = totais(d.lista.filter(r => tipoDe(r.tri) === k)); return x.n ? ["  " + v.n, `${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}`] : null; }).filter(Boolean), ["Área total", nf(t.area) + " m²"], ["Volume", nf(t.vol, 3) + " m³"], ["Massa de CBUQ", nf(t.massa) + " t"], ["Cargas (caminhão 6 t)", String(Math.ceil(t.massa / CARGA) || 0)], ["Espessura considerada", "Asfalto 3 cm · 2,4 t/m³ (0,072 t/m²) · calçada e paralelo só m²"]]);
   if (tipoRel() === "rds") {
     let n = 0;
     for (const r of d.lista) {
@@ -15076,7 +15121,7 @@ async function gerarDocx() {
       const sit = r._st === "triada" ? "Confirmado — pendente de execução" : r._st === "programada" ? `Programado — equipe ${r.prog.equipe} em ${brDia(r.prog.data)}` : `Executado em ${brDia(r.exec.data)}`;
       const obs = [T.obs, ...agentesDaOS(r).filter(a => a.ag !== "cnf" && a.ag !== "prz").map(a => a.t)].filter(Boolean).join(". ");
       body += wP(`Sequência ${n} — OS ${r.os} — ${endTxt(T.end, 1)}`, { b: 1, sz: 11.5, cor: "FFFFFF", fundo: "0B2545", antes: 240, depois: 60 });
-      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(SERV[T.servico].cbuq ? [["Volume", nf(c.volume, 3) + " m³"], ["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}`], ["Observação", obs || "—"]]);
+      body += wTab([["Bairro / Município", `${T.end?.bairro || "a confirmar"} — ${T.end?.mun || "município a confirmar"}/SE`], ["Coordenadas", T.lat != null ? `${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}` : "—"], ["Pavimentação", TIPOS[tipoDe(T)].n], ["Medidas", (T.trechos || []).map(x => `${x.c} × ${x.l} m`).join(" + ") || "—"], ["Área", nf(c.area) + " m²"], ...(c.volume ? [["Volume (3 cm)", nf(c.volume, 3) + " m³"]] : []), ...(c.massa ? [["Massa de CBUQ", nf(c.massa) + " t"]] : []), ["Vida útil", vidaTxt(r)], ["Serviço", `${T.servico} — ${(SERV[T.servico] || {}).n}, ${T.entulho ? "com" : "sem"} remoção de entulhos`], ["Situação", sit], ["Status", r._st === "triada" ? "Confirmado — pendente de execução" : ST_NOME[r._st]], ["Triagem", `${nomePerfil(r.criado.por)} — ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}`], ["Observação", obs || "—"]]);
       let ims = "";
       for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) ims += await addImg(u); }
       let lk = null;
@@ -15236,7 +15281,7 @@ function telaPerfil(primeira) {
     const p = PERFIS.find(x => x.id === esc_); const n = $("#pfn")?.value.trim();
     EU = Object.assign({}, p, { nome: n || NOMES[p.id] || p.nome, nomeProprio: !!n });
     if (n && NOMES[p.id] !== n) { NOMES[p.id] = n; await kvSet("nomes", NOMES); enfileirar({ t: "nomes", p: "equipe.json" }); }
-    await kvSet("perfil", { id: EU.id, nome: EU.nome }); m.onclick = null; VIEW = "painel"; render();
+    await kvSet("perfil", { id: EU.id, nome: EU.nome }); m.onclick = null; VIEW = "painel"; render(); autoMapas();
   };
 }
 function telaAjustes(m) {
@@ -15248,11 +15293,13 @@ function telaAjustes(m) {
     <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
+  ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
+  const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
   $("#ajsync").onclick = () => { SYNC.etag = null; sincronizar(true).then(render); };
   $("#ajupd").onclick = () => checarAtualizacao(true);
   $("#ajexp").onclick = () => baixar(`TriagemOS_backup_${brDia(isoDia()).replace(/\//g, "-")}.json`, new Blob([JSON.stringify({ app: "TriagemOS", gerado: new Date().toISOString(), por: EU.nome, os: [...OS.values()].map(limpo) }, null, 1)], { type: "application/json" }), "application/json");
@@ -15289,6 +15336,11 @@ async function checarAtualizacao(manual) {
   } catch (e) { msg("Não consegui procurar atualização: " + (e.message || "sem internet")); }
 }
 
+/* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
+async function autoMapas() {
+  if (!EU || !(pode("triar") || pode("editarTodos")) || await kvGet("mapasCorrigidos1")) return;
+  setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
+}
 /* ---------- início ---------- */
 (async () => {
   try {
@@ -15303,6 +15355,7 @@ async function checarAtualizacao(manual) {
     render();
     try { if (ANDROID && window.Android.uiOk) window.Android.uiOk(); } catch (e) { }
     sincronizar(); checarAtualizacao();
+    autoMapas();
   } catch (e) { document.body.innerHTML = `<div style="padding:20px;font:15px sans-serif">Erro ao abrir o Triagem OS: ${esc(e.message || e)}</div>`; }
 })();
 
