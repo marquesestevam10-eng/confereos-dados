@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 19;                       // versão da interface (sobe a cada publicação)
+const APP_V = 20;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14922,6 +14922,11 @@ function telaRel(m) {
     <div class="row" style="margin-top:8px"><button class="btn" id="rdocx">📄 Word</button><button class="btn" id="rcsv">📊 Excel</button><button class="btn" id="rzap">💬 Resumo</button></div>
     <button class="btn g w" style="margin-top:8px" id="rgravar">💾 Gravar este relatório</button>
   </div>
+  ${privado() || pode("conferir") ? `<div class="card"><h2>📤 Enviar ao ConfereOS</h2>
+    <div class="small muted">Manda só as triagens (asfalto, calçada e paralelo: OS, endereço, medidas, m², t, código, fotos e mapa) — <b>sem valores</b>. O ConfereOS é quem cruza com a medição.</div>
+    <div class="chips" style="margin-top:8px">${[["novas", "Ainda não enviadas"], ["todas", "Todas"]].map(([k, n]) => `<button class="chip ${(REL.envio || "novas") === k ? "on" : ""}" data-renv="${k}">${n}</button>`).join("")}</div>
+    <div class="small" id="renvinfo" style="margin:6px 0"></div>
+    <button class="btn p w" id="renviar">📤 Gerar arquivo para o ConfereOS</button></div>` : ""}
   <div id="rgrav"></div>`;
   $$("[data-rt]", m).forEach(b => b.onclick = () => { REL.tipo = b.dataset.rt; render(); });
   $$("[data-rpav]", m).forEach(b => b.onclick = () => { REL.pav = b.dataset.rpav; render(); });
@@ -14933,6 +14938,9 @@ function telaRel(m) {
   $("#rdocx", m).onclick = async () => { await gravarRelatorio(true); gerarDocx(); };
   $("#rgravar", m).onclick = async () => { await gravarRelatorio(false); listaGravados($("#rgrav", m)); };
   listaGravados($("#rgrav", m));
+  const envInfo = () => { const l = paraConfere(); const el = $("#renvinfo", m); if (el) el.innerHTML = `<b>${l.length}</b> OS triadas${l.length ? " · " + Object.entries(TIPOS).map(([k, v]) => [v.n, l.filter(r => tipoDe(r.tri) === k).length]).filter(x => x[1]).map(x => x.join(": ")).join(" · ") : ""}`; };
+  $$("[data-renv]", m).forEach(b => b.onclick = () => { REL.envio = b.dataset.renv; render(); });
+  envInfo(); const be = $("#renviar", m); if (be) be.onclick = enviarConfere;
   $("#rcsv", m).onclick = () => gerarCSV();
   $("#rzap", m).onclick = () => compartilhar(resumoTexto());
 }
@@ -15147,6 +15155,31 @@ async function gerarDocx() {
     ...media.map(m => ({ n: "word/" + m.n, d: m.d })),
   ];
   await baixar(nomeArq("docx"), zip(files), "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+}
+
+/* ---------- Enviar ao ConfereOS: só triagem, sem valores ---------- */
+function paraConfere() {
+  return [...OS.values()].filter(r => r._st !== "cancelada" && (REL.envio === "todas" || !r.tri.enviadoConfere)).sort((a, b) => (a.tri.emFoto || a.criado.em) - (b.tri.emFoto || b.criado.em));
+}
+async function enviarConfere() {
+  const l = paraConfere(); if (!l.length) return aviso("Nenhuma triagem nova para enviar");
+  aviso(`📦 Preparando ${l.length} OS para o ConfereOS…`, 15000);
+  const reduz = async (u, w) => { const j = await imgJPG(u, w); if (!j) return null; let b = ""; for (let i = 0; i < j.u8.length; i += 0x8000) b += String.fromCharCode.apply(null, j.u8.subarray(i, i + 0x8000)); return "data:image/jpeg;base64," + btoa(b); };
+  const linhas = [];
+  for (const r of l) {
+    const T = r.tri, c = r._c, fotos = [];
+    for (const f of (T.fotos || []).slice(0, 3)) { const u = await fotoURL(f.p); if (u) { const d = await reduz(u, 900); if (d) fotos.push(d); } }
+    let mapa = null; if (T.lat != null) { const u = await miniMapa(T.lat, T.lng, "OS " + r.os); if (u) mapa = u; }
+    linhas.push({ os: r.os, dia: T.dia, emFoto: T.emFoto || r.criado.em, tipo: tipoDe(T), servico: T.servico, servicoNome: (SERV[T.servico] || {}).n,
+      end: { rua: T.end?.rua || "", num: T.end?.num || "", bairro: T.end?.bairro || "", mun: T.end?.mun || "" },
+      medidas: (T.trechos || []).map(t => `${t.c} x ${t.l}`).join(" + ") + " m", area: +c.area.toFixed(2), massa: +c.massa.toFixed(3), entulho: !!T.entulho,
+      obs: T.obs || "", encarregado: nomePerfil(r.criado.por) + " - Enc. Pavimentação", lat: T.lat ?? null, lng: T.lng ?? null, navegar: T.lat != null ? navUrl(T.lat, T.lng) : null, fotos, mapa });
+  }
+  const arq = { formato: "triagemos-para-confereos", versao: 1, gerado: new Date().toISOString(), por: EU.nome, n: linhas.length, linhas };
+  const nome = `TriagemOS_para_ConfereOS_${brDia(isoDia()).replace(/\//g, "-")}_${linhas.length}OS.json`;
+  await baixar(nome, new Blob([JSON.stringify(arq)], { type: "application/json" }), "application/json");
+  for (const r of l) { r.tri.enviadoConfere = Date.now(); r.tri.upd = Date.now(); await salvarOS(r, "editada", "enviada ao ConfereOS"); }
+  aviso(`✅ Arquivo pronto (${linhas.length} OS). Mande o arquivo para o Claude publicar no ConfereOS.`, 8000); render();
 }
 
 /* ================= Tela grande (computador / TV) com QR Code — igual WhatsApp Web =================
