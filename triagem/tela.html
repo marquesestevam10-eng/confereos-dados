@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 29;                       // versão da interface (sobe a cada publicação)
+const APP_V = 30;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14267,7 +14267,7 @@ async function abrirOS(id) {
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
       <dt>Pavimentação</dt><dd>${TIPOS[tipoDe(T)].ic} ${TIPOS[tipoDe(T)].n}</dd>
       <dt>Serviço</dt><dd>${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n || "")}${T.servicoConfirmado ? "" : ' <span class="tag pend">confirmar</span>'}</dd>
-      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>
+      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>${T.flags?.baseBoa ? "<dt>Base</dt><dd>✔ Base está boa</dd>" : ""}
       <dt>Medidas</dt><dd class="mono">${(T.trechos || []).filter(t => num(t.c) && num(t.l)).map(t => `${nf(num(t.c))} × ${nf(num(t.l))}`).join(" + ") || "—"}${c.diverge ? `<br><span class="small" style="color:var(--bad)">medidas somam ${nf(c.areaMedida)} m²; adotado o total da OS (${nf(num(T.areaOS))} m²)</span>` : ""}</dd>
       <dt>Coordenada</dt><dd class="mono">${T.lat != null ? `<a href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a>` : "—"}</dd>
       ${T.end?.numFachada ? `<dt>Nº fachada</dt><dd>${esc(T.end.numFachada)}</dd>` : ""}
@@ -14450,10 +14450,9 @@ function abrirForm(r, op = {}) {
     <div class="calc" id="fcalc"></div>
     <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
-    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
+    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcarro" ${T.flags?.carro ? "checked" : ""}> Carro sobre o reparo</label>
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fterra" ${T.flags?.terra ? "checked" : ""}> Só terra (sem base)</label>
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fbase" ${T.flags?.baseBoa ? "checked" : ""}> Base está boa</label>
     </div>
     <label class="f">Dia da triagem</label><input class="in" type="date" id="fdia" value="${T.dia}">
     <div class="small muted" id="fdianota" style="margin-top:4px">${T.emFoto ? "📅 Pela data da foto: " + brHora(T.emFoto) : "Vale a data da foto: ao pôr as fotos, o dia se ajusta sozinho."}</div>
@@ -14668,7 +14667,7 @@ function abrirForm(r, op = {}) {
     T.end.aConfirmar = !T.end.rua;
     if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; if (LOC.origem === "endereco") T.geoPeloEnd = 1; }
     T.obs = $("#fobs", s).value.trim();
-    T.flags = { carro: $("#fcarro", s).checked, terra: $("#fterra", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
+    T.flags = { baseBoa: $("#fbase", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
     // fotos novas: carimbo com OS + endereço + coordenada
     const endC = endTxt(T.end);
     for (let i = 0; i < FN.length; i++) {
@@ -14946,8 +14945,6 @@ const AGENTES = [
     f(r) { const F = r.tri.fotos || [], a = [];
       if (!F.length) a.push({ n: 2, t: "OS sem foto" }); else if (F.length < 2) a.push({ n: 1, t: "Só 1 foto (o padrão é 2 a 3)" });
       if (F.some(f => f.brilho != null && f.brilho < 60) || r.tri.flags?.escura) a.push({ n: 1, t: "Foto escura/noturna: conferir" });
-      if (r.tri.flags?.carro) a.push({ n: 1, t: "Carro sobre o reparo" });
-      if (r.tri.flags?.terra && r._st === "executada") a.push({ n: 2, t: "Marcada como só terra e já com baixa" });
       return a; } },
   { id: "car", ic: "🚚", nome: "Agente Cargas", d: `Caminhão de ${CARGA} t e soma por equipe/dia`,
     f(r) { const a = []; if (r._c.massa > CARGA) a.push({ n: 1, t: `${nf(r._c.massa)} t: precisa de ${Math.ceil(r._c.massa / CARGA)} cargas` }); return a; },
@@ -15104,7 +15101,7 @@ function secaoRDS(r, n) {
     <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
       <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
       <p><b>Área:</b> ${nf(c.area)} m²${c.volume ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ (3 cm)` : ""}${c.massa ? ` · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
-      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
+      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos${T.flags?.baseBoa ? " · <b>base está boa</b>" : ""}</p>
       <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
       ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
       <p><b>Triagem:</b> ${esc(nomePerfil(r.criado.por))} · <b>Vida útil:</b> ${esc(vidaTxt(r))}</p>

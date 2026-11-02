@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 27;                       // versão da interface (sobe a cada publicação)
+const APP_V = 30;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13370,6 +13370,10 @@ function calcular(tri) {
   // asfalto: m², m³ (3 cm) e t de CBUQ · calçada e paralelo: só m²
   return { area, areaMedida, volume: sv.cbuq ? area * ESP : 0, massa: sv.cbuq ? area * TON_M2 : 0, diverge: areaOS > 0 && areaMedida > 0 && Math.abs(areaOS - areaMedida) / areaOS > 0.05 };
 }
+/* setor: Aracaju por bairro; as outras cidades da Regional pelo município */
+const ehAracaju = e => /^\s*aracaju\s*$/i.test(e?.mun || "");
+function setorDe(T) { const e = (T && T.end) || {}; if (ehAracaju(e)) return "Aracaju · " + (e.bairro || "bairro a confirmar"); return e.mun || e.bairro || "Município a confirmar"; }
+const ordemSetor = (a, b) => (a.startsWith("Aracaju · ") ? 0 : 1) - (b.startsWith("Aracaju · ") ? 0 : 1) || a.localeCompare(b, "pt-BR");
 const endTxt = (e, curto) => { if (!e) return "endereço a confirmar"; const p = [e.rua || "rua não identificada", e.num ? "nº " + e.num : "s/n"]; if (!curto) { if (e.bairro || !e.rua) p.push(e.bairro || "bairro a confirmar"); p.push(e.mun || "município a confirmar"); } return p.join(", "); };
 function registro(r) { const c = calcular(r.tri || {}); return Object.assign(r, { _st: status(r), _c: c }); }
 function nomePerfil(id) { const p = PERFIS.find(x => x.id === id); return (p && p.id === EU?.id ? EU.nome : null) || (NOMES[id]) || (p ? p.nome : id); }
@@ -14053,6 +14057,31 @@ function lerXmpGps(u8) {
   } catch (e) { return null; }
 }
 
+/* OS de Aracaju sem bairro: busca o bairro pela coordenada (ponto confiável ou achado pelo endereço exato) */
+let _bairros = false;
+async function preencherBairros() {
+  if (_bairros || !navigator.onLine) return; _bairros = true;
+  try {
+    const l = [...OS.values()].filter(r => r._st !== "cancelada" && ehAracaju(r.tri.end) && !r.tri.end?.bairro && r.tri.lat != null && !r.tri.geoAprox);
+    let ok = 0;
+    for (const r of l) {
+      const e = await enderecoDe(r.tri.lat, r.tri.lng); await new Promise(x => setTimeout(x, 1100));
+      if (!e || !e.bairro || (e.mun && !/aracaju/i.test(e.mun))) continue;
+      r.tri.end = Object.assign({}, r.tri.end, { bairro: e.bairro }); r.tri.upd = Date.now();
+      await salvarOS(r, "editada", "bairro pelo mapa: " + e.bairro); ok++;
+    }
+    /* qualquer cidade: OS com ponto do local (foto/GPS na hora/carimbo) e sem rua → rua/bairro/município pela coordenada */
+    const l2 = [...OS.values()].filter(r => r._st !== "cancelada" && !r.tri.end?.rua && r.tri.lat != null && pontoConfiavel(r) && r.tri.origemCoord !== "endereco");
+    for (const r of l2) {
+      const e = await enderecoDe(r.tri.lat, r.tri.lng); await new Promise(x => setTimeout(x, 1100));
+      if (!e || !e.rua) continue; const v = r.tri.end || {};
+      r.tri.end = Object.assign({}, v, { rua: e.rua, bairro: v.bairro || e.bairro || "", mun: v.mun || e.mun || "" }); r.tri.upd = Date.now();
+      await salvarOS(r, "editada", "rua pelo mapa: " + e.rua); ok++;
+    }
+    if (ok) { aviso(`📍 ${ok} OS receberam rua/bairro pelo mapa`, 5000); render(); }
+  } finally { _bairros = false; }
+}
+
 /* ================= Telas ================= */
 const ICON = {
   painel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -14107,6 +14136,7 @@ function lista(f = {}) {
   if (f.tipo && f.tipo !== "todos") l = l.filter(r => tipoDe(r.tri) === f.tipo);
   if (f.per === "hoje") l = l.filter(r => r.tri.dia === hoje || r.exec?.data === hoje || r.prog?.data === hoje);
   if (f.per === "semana") l = l.filter(r => diasEntre(r.tri.dia, hoje) <= 7);
+  if (f.setor && f.setor !== "todos") l = l.filter(r => setorDe(r.tri) === f.setor);
   if (f.q) { const q = f.q.toLowerCase(); l = l.filter(r => [r.os, r.tri.end?.rua, r.tri.end?.bairro, r.tri.end?.mun, r.prog?.equipe].join(" ").toLowerCase().includes(q)); }
   return l.sort((a, b) => b.criado.em - a.criado.em);
 }
@@ -14144,8 +14174,8 @@ function telaPainel(m) {
   const serie = dias.map(d => ({ d, tri: all.filter(r => r.tri.dia === d).length, exe: all.filter(r => r.exec?.data === d && r._st === "executada").length }));
   const mx = Math.max(1, ...serie.map(s => Math.max(s.tri, s.exe)));
   // bairros pendentes
-  const bai = {}; all.filter(r => r._st === "triada" || r._st === "programada").forEach(r => { const b = r.tri.end?.bairro || r.tri.end?.mun || "a confirmar"; (bai[b] = bai[b] || { n: 0, t: 0 }).n++; bai[b].t += r._c.massa; });
-  const bais = Object.entries(bai).sort((a, b) => b[1].t - a[1].t).slice(0, 8); const mb = Math.max(0.01, ...bais.map(b => b[1].t));
+  const bai = {}; all.filter(r => r._st === "triada" || r._st === "programada").forEach(r => { const b = setorDe(r.tri); const x = (bai[b] = bai[b] || { n: 0, t: 0, a: 0 }); x.n++; x.t += r._c.massa; x.a += r._c.area; });
+  const bais = Object.entries(bai).sort((a, b) => ordemSetor(a[0], b[0]) || b[1].a - a[1].a); const mb = Math.max(0.01, ...bais.map(b => b[1].a));
   const tot = all.length || 1, pctExec = Math.round(t.executada.n / tot * 100);
   m.innerHTML = `
   <div class="kpis">
@@ -14172,8 +14202,9 @@ function telaPainel(m) {
   <div class="card"><h2>📈 Últimos 14 dias <span class="r"><span style="color:var(--tri)">■</span> triadas <span style="color:var(--exec)">■</span> executadas</span></h2>
     <svg viewBox="0 0 280 110" style="width:100%;height:auto">${serie.map((s, i) => { const x = i * 20 + 2, h1 = s.tri / mx * 80, h2 = s.exe / mx * 80; return `<rect x="${x}" y="${88 - h1}" width="7.5" height="${h1}" rx="1.5" fill="#f2b705"/><rect x="${x + 8.5}" y="${88 - h2}" width="7.5" height="${h2}" rx="1.5" fill="#23764a"/>${s.tri ? `<text x="${x + 3.7}" y="${85 - h1}" font-size="7" text-anchor="middle" fill="#5f665d">${s.tri}</text>` : ""}<text x="${x + 8}" y="100" font-size="6.5" text-anchor="middle" fill="#5f665d">${s.d.slice(8)}</text>`; }).join("")}<line x1="0" x2="280" y1="88.5" y2="88.5" stroke="#dcdbd3"/></svg>
   </div>
-  <div class="card"><h2>📍 Falta fazer por bairro <span class="r">t de CBUQ</span></h2>
-    ${bais.length ? bais.map(([b, v]) => `<div style="margin:6px 0" data-ir="lista" data-q="${esc(b)}"><div class="row small" style="justify-content:space-between"><span><b>${esc(b)}</b> · ${v.n} OS</span><span class="mono" style="flex:none">${nf(v.t)} t</span></div><div class="bar"><i style="width:${v.t / mb * 100}%;background:var(--amarelo)"></i></div></div>`).join("") : '<div class="muted small">Nenhuma OS pendente.</div>'}
+  <div class="card"><h2>📍 Falta fazer por setor <span class="r">Aracaju por bairro · demais por cidade</span></h2>
+    ${bais.length ? bais.map(([b, v], k) => { const aj = b.startsWith("Aracaju · "), cab = aj && (k === 0) ? '<div class="small" style="margin:4px 0 2px;color:var(--muted);font-weight:700">ARACAJU</div>' : !aj && (k === 0 || bais[k - 1][0].startsWith("Aracaju · ")) ? '<div class="small" style="margin:10px 0 2px;color:var(--muted);font-weight:700">DEMAIS CIDADES DA REGIONAL</div>' : "";
+      return `${cab}<div style="margin:6px 0;cursor:pointer" data-setor-ir="${esc(b)}"><div class="row small" style="justify-content:space-between"><span><b>${esc(aj ? b.slice(10) : b)}</b> · ${v.n} OS</span><span class="mono" style="flex:none">${nf(v.a)} m²${v.t ? " · " + nf(v.t) + " t" : ""}</span></div><div class="bar"><i style="width:${v.a / mb * 100}%;background:${aj ? "var(--amarelo)" : "#2a62a6"}"></i></div></div>`; }).join("") : '<div class="muted small">Nenhuma OS pendente.</div>'}
   </div>
   <div class="card"><h2>🕑 Últimas movimentações</h2>${ultimas()}</div>${CREDITO}`;
 }
@@ -14184,6 +14215,7 @@ function ultimas() {
   const nome = { triada: "triou", editada: "editou", programada: "programou", executada: "deu baixa em", conferida: "conferiu", cancelada: "cancelou", "baixa desfeita": "desfez a baixa de", "programação removida": "tirou da programação" };
   return ev.slice(0, 8).map(({ r, h }) => `<div class="achado" data-os="${r.id}"><span class="muted mono small" style="flex:none">${brHora(h.em)}</span><span><b>${esc(nomePerfil(h.por).split(" ")[0])}</b> ${nome[h.acao] || h.acao} <b>OS ${esc(r.os)}</b>${h.acao === "programada" && r.prog ? ` · eq. ${esc(r.prog.equipe)}` : ""}</span></div>`).join("") || '<div class="muted small">Nada ainda. Faça a primeira triagem.</div>';
 }
+document.addEventListener("click", e => { const b = e.target.closest("[data-setor-ir]"); if (!b) return; FILTRO.setor = b.dataset.setorIr; FILTRO.st = "ativas"; FILTRO.q = ""; ir("lista"); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-novatri]"); if (b) abrirForm(null, { tipo: b.dataset.novatri }); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"); if (!b) return; const a = {}; if (b.dataset.st) a.st = b.dataset.st; if (b.dataset.q) { a.q = b.dataset.q; a.st = "ativas"; } if (b.dataset.tp) { a.tipo = b.dataset.tp; a.st = "ativas"; } ir(b.dataset.ir, a); });
 
@@ -14191,20 +14223,28 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 function telaLista(m) {
   const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
+  const base = lista(Object.assign({}, FILTRO, { setor: "todos" })); const cont = {}; base.forEach(r => { const k = setorDe(r.tri); cont[k] = (cont[k] || 0) + 1; });
+  const setores = Object.keys(cont).sort(ordemSetor); if (FILTRO.setor && FILTRO.setor !== "todos" && !cont[FILTRO.setor]) setores.unshift(FILTRO.setor);
+  const agrupa = FILTRO.agrupar !== false && FILTRO.st !== "maiores";
+  const desenha = l => { if (!agrupa) return l.map(r => cartao(r, !!SEL)).join(""); const g = {}; l.forEach(r => (g[setorDe(r.tri)] = g[setorDe(r.tri)] || []).push(r));
+    return Object.keys(g).sort(ordemSetor).map(k => { const x = totais(g[k]); return `<div class="small" style="margin:12px 4px 6px;font-weight:700;display:flex;justify-content:space-between;gap:8px"><span>📍 ${esc(k)}</span><span class="mono muted" style="flex:none">${x.n} OS · ${nf(x.area)} m²${x.massa ? " · " + nf(x.massa) + " t" : ""}</span></div>` + g[k].map(r => cartao(r, !!SEL)).join(""); }).join(""); };
   m.innerHTML = `
   <input class="search" id="q" placeholder="🔎 Buscar OS, rua, bairro, equipe…" value="${esc(FILTRO.q)}">
   <div class="chips">${sts.map(([k, n]) => `<button class="chip ${FILTRO.st === k ? "on" : ""}" data-st="${k}">${n}</button>`).join("")}</div>
   <div class="chips">${[["todos", "Todos os tipos"], ...Object.entries(TIPOS).map(([k, v]) => [k, v.ic + " " + v.n])].map(([k, n]) => `<button class="chip ${(FILTRO.tipo || "todos") === k ? "on" : ""}" data-tipo="${k}">${n}</button>`).join("")}</div>
+  <div class="chips"><button class="chip ${agrupa ? "on" : ""}" data-agrupa="1">🗂 Por bairro/cidade</button><button class="chip ${!FILTRO.setor || FILTRO.setor === "todos" ? "on" : ""}" data-setor="todos">📍 Todos os setores</button>${setores.map(k => `<button class="chip ${FILTRO.setor === k ? "on" : ""}" data-setor="${esc(k)}">${esc(k)} <span class="mono">${cont[k] || 0}</span></button>`).join("")}</div>
   <div class="chips">${[["tudo", "Todo período"], ["hoje", "Hoje"], ["semana", "7 dias"]].map(([k, n]) => `<button class="chip ${FILTRO.per === k ? "on" : ""}" data-per="${k}">${n}</button>`).join("")}</div>
   <div class="row small muted" style="margin:2px 2px 8px;align-items:center"><span><b class="mono">${t.n}</b> OS · <b class="mono">${nf(t.area)}</b> m² · <b class="mono">${nf(t.massa)}</b> t</span>
     ${pode("programar") || pode("baixa") ? `<button class="btn sm" style="flex:none" data-act="selecionar">${SEL ? "Cancelar seleção" : "☑ Selecionar"}</button>` : ""}</div>
   ${SEL ? `<div class="card" style="position:sticky;top:64px;z-index:5"><div class="small"><b>${SEL.size}</b> selecionada(s)</div><div class="row" style="margin-top:8px">${pode("programar") ? '<button class="btn bl" data-act="prog-sel">🚚 Programar</button>' : ""}${pode("baixa") ? '<button class="btn g" data-act="baixa-sel">✅ Dar baixa</button>' : ""}</div></div>` : ""}
-  <div id="ls">${l.map(r => cartao(r, !!SEL)).join("") || '<div class="empty">Nenhuma OS aqui.</div>'}</div>`;
+  <div id="ls">${desenha(l) || '<div class="empty">Nenhuma OS aqui.</div>'}</div>`;
   thumbs(m);
-  const q = $("#q", m); q.oninput = () => { FILTRO.q = q.value; const l2 = lista(FILTRO); $("#ls").innerHTML = l2.map(r => cartao(r, !!SEL)).join("") || '<div class="empty">Nenhuma OS aqui.</div>'; thumbs($("#ls")); };
+  const q = $("#q", m); q.oninput = () => { FILTRO.q = q.value; const l2 = lista(FILTRO); $("#ls").innerHTML = desenha(l2) || '<div class="empty">Nenhuma OS aqui.</div>'; thumbs($("#ls")); };
   $$("[data-st]", m).forEach(b => b.onclick = e => { e.stopPropagation(); FILTRO.st = b.dataset.st; render(); });
   $$("[data-per]", m).forEach(b => b.onclick = () => { FILTRO.per = b.dataset.per; render(); });
   $$("[data-tipo]", m).forEach(b => b.onclick = () => { FILTRO.tipo = b.dataset.tipo; render(); });
+  $$("[data-setor]", m).forEach(b => b.onclick = () => { FILTRO.setor = b.dataset.setor; render(); });
+  $$("[data-agrupa]", m).forEach(b => b.onclick = () => { FILTRO.agrupar = !agrupa; render(); });
   m.onchange = e => { const c = e.target.closest("[data-sel]"); if (c) { c.checked ? SEL.add(c.dataset.sel) : SEL.delete(c.dataset.sel); const s = $(".card .small b", m); if (s) s.textContent = SEL.size; } };
 }
 
@@ -14227,7 +14267,7 @@ async function abrirOS(id) {
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
       <dt>Pavimentação</dt><dd>${TIPOS[tipoDe(T)].ic} ${TIPOS[tipoDe(T)].n}</dd>
       <dt>Serviço</dt><dd>${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n || "")}${T.servicoConfirmado ? "" : ' <span class="tag pend">confirmar</span>'}</dd>
-      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>
+      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>${T.flags?.baseBoa ? "<dt>Base</dt><dd>✔ Base está boa</dd>" : ""}
       <dt>Medidas</dt><dd class="mono">${(T.trechos || []).filter(t => num(t.c) && num(t.l)).map(t => `${nf(num(t.c))} × ${nf(num(t.l))}`).join(" + ") || "—"}${c.diverge ? `<br><span class="small" style="color:var(--bad)">medidas somam ${nf(c.areaMedida)} m²; adotado o total da OS (${nf(num(T.areaOS))} m²)</span>` : ""}</dd>
       <dt>Coordenada</dt><dd class="mono">${T.lat != null ? `<a href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a>` : "—"}</dd>
       ${T.end?.numFachada ? `<dt>Nº fachada</dt><dd>${esc(T.end.numFachada)}</dd>` : ""}
@@ -14410,10 +14450,9 @@ function abrirForm(r, op = {}) {
     <div class="calc" id="fcalc"></div>
     <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
-    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
+    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcarro" ${T.flags?.carro ? "checked" : ""}> Carro sobre o reparo</label>
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fterra" ${T.flags?.terra ? "checked" : ""}> Só terra (sem base)</label>
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fbase" ${T.flags?.baseBoa ? "checked" : ""}> Base está boa</label>
     </div>
     <label class="f">Dia da triagem</label><input class="in" type="date" id="fdia" value="${T.dia}">
     <div class="small muted" id="fdianota" style="margin-top:4px">${T.emFoto ? "📅 Pela data da foto: " + brHora(T.emFoto) : "Vale a data da foto: ao pôr as fotos, o dia se ajusta sozinho."}</div>
@@ -14628,7 +14667,7 @@ function abrirForm(r, op = {}) {
     T.end.aConfirmar = !T.end.rua;
     if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; if (LOC.origem === "endereco") T.geoPeloEnd = 1; }
     T.obs = $("#fobs", s).value.trim();
-    T.flags = { carro: $("#fcarro", s).checked, terra: $("#fterra", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
+    T.flags = { baseBoa: $("#fbase", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
     // fotos novas: carimbo com OS + endereço + coordenada
     const endC = endTxt(T.end);
     for (let i = 0; i < FN.length; i++) {
@@ -14889,6 +14928,7 @@ function sobraMassa(box) {
   }
 }
 
+const PRAZO_DIAS = 5;
 /* ================= Agentes (conferência automática) =================
    n: 1 = atenção, 2 = problema. Cada agente olha as OS e devolve achados. */
 const AGENTES = [
@@ -14905,8 +14945,6 @@ const AGENTES = [
     f(r) { const F = r.tri.fotos || [], a = [];
       if (!F.length) a.push({ n: 2, t: "OS sem foto" }); else if (F.length < 2) a.push({ n: 1, t: "Só 1 foto (o padrão é 2 a 3)" });
       if (F.some(f => f.brilho != null && f.brilho < 60) || r.tri.flags?.escura) a.push({ n: 1, t: "Foto escura/noturna: conferir" });
-      if (r.tri.flags?.carro) a.push({ n: 1, t: "Carro sobre o reparo" });
-      if (r.tri.flags?.terra && r._st === "executada") a.push({ n: 2, t: "Marcada como só terra e já com baixa" });
       return a; } },
   { id: "car", ic: "🚚", nome: "Agente Cargas", d: `Caminhão de ${CARGA} t e soma por equipe/dia`,
     f(r) { const a = []; if (r._c.massa > CARGA) a.push({ n: 1, t: `${nf(r._c.massa)} t: precisa de ${Math.ceil(r._c.massa / CARGA)} cargas` }); return a; },
@@ -14920,10 +14958,11 @@ const AGENTES = [
       if (!r._c.area) a.push({ n: 2, t: "Sem medidas" });
       const dup = [...OS.values()].filter(x => x.os === r.os && x.id !== r.id && x._st !== "cancelada"); if (dup.length) a.push({ n: 2, t: "OS duplicada no sistema" });
       return a; } },
-  { id: "prz", ic: "⏱", nome: "Agente Prazo", d: "Triada parada e programação vencida",
+  { id: "prz", ic: "⏱", nome: "Agente Prazo", d: "Triada parada e programação vencida (prazo de 5 dias)",
     f(r) { const a = [], h = isoDia();
-      if (r._st === "triada") { const d = diasEntre(r.tri.dia, h); if (d >= 7) a.push({ n: 2, t: `Triada há ${d} dias sem programação` }); else if (d >= 3) a.push({ n: 1, t: `Triada há ${d} dias sem programação` }); }
-      if (r._st === "programada" && r.prog.data < h) a.push({ n: 2, t: `Programada para ${brDia(r.prog.data)} e sem baixa` });
+      /* prazo de 5 dias (pedido do Estevam em 02/11/2026, por causa de feriado/fim de semana) */
+      if (r._st === "triada") { const d = diasEntre(r.tri.dia, h); if (d >= 10) a.push({ n: 2, t: `Triada há ${d} dias sem programação` }); else if (d >= PRAZO_DIAS) a.push({ n: 1, t: `Triada há ${d} dias sem programação` }); }
+      if (r._st === "programada" && diasEntre(r.prog.data, h) >= PRAZO_DIAS) a.push({ n: 2, t: `Programada para ${brDia(r.prog.data)} e sem baixa há ${diasEntre(r.prog.data, h)} dias` });
       return a; } },
   { id: "cnf", ic: "🔍", nome: "Agente Conferência", d: "Executadas aguardando o gerente conferir",
     f(r) { const a = []; if (r._st === "executada" && !ativa(r.conf)) a.push({ n: 1, t: "Executada, aguardando conferência" }); if (ativa(r.conf) && !r.conf.ok) a.push({ n: 2, t: "Conferência com divergência" + (r.conf.obs ? ": " + r.conf.obs : "") }); return a; } },
@@ -15029,8 +15068,8 @@ async function abrirRel(snap) {
   } else {
     const porSt = ["triada", "programada", "executada"].map(s => [s, totais(d.lista.filter(r => r._st === s))]);
     corpo += `<h2 class="d2">Resumo</h2>${tabRes}<table class="dt"><thead><tr><th>Situação</th><th>OS</th><th>m²</th><th>t</th></tr></thead><tbody>${porSt.map(([s, x]) => `<tr><td>${ST_NOME[s]}</td><td>${x.n}</td><td>${nf(x.area)}</td><td>${nf(x.massa)}</td></tr>`).join("")}</tbody></table>`;
-    if (tp !== "acomp") { const g = {}; d.lista.forEach(r => { const k = tp === "exec" ? "Equipe " + (r.exec?.equipe || r.prog?.equipe || "?") : (r.tri.end?.bairro || "Bairro a confirmar"); (g[k] = g[k] || []).push(r); });
-      corpo += Object.entries(g).map(([k, l]) => { const x = totais(l); return `<h2 class="d2">${esc(k)} — ${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t</h2>${tabelaOS(l)}`; }).join(""); }
+    if (tp !== "acomp") { const g = {}; d.lista.forEach(r => { const k = tp === "exec" ? "Equipe " + (r.exec?.equipe || r.prog?.equipe || "?") : setorDe(r.tri); (g[k] = g[k] || []).push(r); });
+      corpo += Object.entries(g).sort((a, b) => tp === "exec" ? a[0].localeCompare(b[0]) : ordemSetor(a[0], b[0])).map(([k, l]) => { const x = totais(l); return `<h2 class="d2">${esc(k)} — ${x.n} OS · ${nf(x.area)} m² · ${nf(x.massa)} t</h2>${tabelaOS(l)}`; }).join(""); }
     else corpo += `<h2 class="d2">OS do período</h2>` + tabelaOS(d.lista);
   }
   const g = d.gravado;
@@ -15062,7 +15101,7 @@ function secaoRDS(r, n) {
     <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
       <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
       <p><b>Área:</b> ${nf(c.area)} m²${c.volume ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ (3 cm)` : ""}${c.massa ? ` · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
-      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
+      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos${T.flags?.baseBoa ? " · <b>base está boa</b>" : ""}</p>
       <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
       ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
       <p><b>Triagem:</b> ${esc(nomePerfil(r.criado.por))} · <b>Vida útil:</b> ${esc(vidaTxt(r))}</p>
@@ -15465,6 +15504,7 @@ async function autoMapas() {
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos"))) return;
+  setTimeout(preencherBairros, 15000);
   if (!(await kvGet("mapasCorrigidos1"))) setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
   /* 01/11/2026: endereços conferidos pelo carimbo no servidor → baixa e refaz os mapas pelo endereço certo */
   else if (temServidor() && !(await kvGet("mapasCorrigidos3"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; const x = await corrigirMapas(false); if (x && x.ok === x.total) await kvSet("mapasCorrigidos3", 1); }, 4000);
