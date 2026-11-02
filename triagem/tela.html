@@ -13276,7 +13276,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 32;                       // versão da interface (sobe a cada publicação)
+const APP_V = 33;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13456,6 +13456,21 @@ function mesclar(a, b) {
   return o;
 }
 const limpo = r => { const o = {}; for (const k in r) if (k[0] !== "_") o[k] = r[k]; return o; };
+
+/* ---------- som das teclas (clique curto e baixo) + toque de confirmação. Liga/desliga em Ajustes. ---------- */
+let SOM = (() => { try { return localStorage.getItem("somTeclas") !== "0"; } catch (e) { return true; } })();
+let _ac = null;
+function _ctx() { if (!_ac) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; _ac = new C(); } if (_ac.state === "suspended") _ac.resume(); return _ac; }
+function tom(freq, dur, vol, tipo = "sine", quando = 0) {
+  const c = _ctx(); if (!c) return; const t0 = c.currentTime + quando;
+  const o = c.createOscillator(), g = c.createGain(); o.type = tipo; o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const somTecla = () => { if (SOM) try { tom(1650, 0.035, 0.05, "triangle"); tom(900, 0.03, 0.025, "sine"); } catch (e) { } };
+const somOk = () => { if (SOM) try { tom(880, 0.12, 0.06); tom(1320, 0.18, 0.05, "sine", 0.09); } catch (e) { } };
+const somErro = () => { if (SOM) try { tom(330, 0.16, 0.06, "square"); tom(250, 0.2, 0.05, "square", 0.12); } catch (e) { } };
+document.addEventListener("pointerdown", e => { if (e.target.closest("button, .btn, .chip, .seg button, nav.bot button, [data-ir], [data-os], [data-pf], [data-setor-ir], input[type=checkbox], select, a.navb, a.maplink, .navb")) somTecla(); }, { passive: true });
 
 /* ================= Sincronização com o GitHub (repositório privado triagemos-dados) =================
    os/<id>.json  → um arquivo por OS (seções com carimbo de atualização, mescla sem perder dados)
@@ -14122,7 +14137,7 @@ function render() {
   const m = $("#main");
   ({ painel: telaPainel, lista: telaLista, rota: telaRota, rel: telaRel, agentes: telaAgentes, ajustes: telaAjustes }[VIEW] || telaPainel)(m);
 }
-function aviso(t, ms = 3200) { $$(".toast").forEach(x => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.innerHTML = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); }
+function aviso(t, ms = 3200) { if (/^\s*✅/.test(t)) somOk(); else if (/^\s*(⚠|❌)/.test(t)) somErro(); $$(".toast").forEach(x => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.innerHTML = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); }
 function folha(html, cls = "") {
   const bg = document.createElement("div"); bg.className = "sheet-bg";
   bg.innerHTML = `<div class="sheet ${cls}"><div class="grab"></div>${html}</div>`;
@@ -15542,10 +15557,12 @@ function telaAjustes(m) {
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
   ${privado() ? `<div class="card"><h2>⚠️ Duplicidade</h2><div class="small muted">Se você conferiu e as OS estão certas, zere os alertas de agora. As OS novas continuam sendo verificadas.</div><button class="btn w" style="margin-top:10px" id="ajzerodup">✔ Zerar alertas de duplicidade</button></div>` : ""}
+  <div class="card"><h2>🔊 Som das teclas</h2><div class="small muted">Clique baixinho ao tocar nos botões e um toque quando salva.</div><button class="btn w" style="margin-top:10px" id="ajsom">${SOM ? "🔊 Ligado — tocar para desligar" : "🔇 Desligado — tocar para ligar"}</button></div>
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
+  $("#ajsom").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } if (SOM) somOk(); render(); };
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
   const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
   const zd = $("#ajzerodup"); if (zd) zd.onclick = () => { if (confirm("Zerar todos os alertas de duplicidade de agora?")) zerarDuplicidades(true); };

@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 32,
+  "v": 33,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-32.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-33.html"
  },
  "apk": {
   "v": 7,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Rota no padrão do TOA",
+ "nota": "Som das teclas",
  "data": "02/11/2026"
 }
