@@ -13273,7 +13273,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 28;                       // versão da interface (sobe a cada publicação)
+const APP_V = 31;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14070,7 +14070,15 @@ async function preencherBairros() {
       r.tri.end = Object.assign({}, r.tri.end, { bairro: e.bairro }); r.tri.upd = Date.now();
       await salvarOS(r, "editada", "bairro pelo mapa: " + e.bairro); ok++;
     }
-    if (ok) { aviso(`📍 ${ok} OS de Aracaju receberam o bairro pelo mapa`, 5000); render(); }
+    /* qualquer cidade: OS com ponto do local (foto/GPS na hora/carimbo) e sem rua → rua/bairro/município pela coordenada */
+    const l2 = [...OS.values()].filter(r => r._st !== "cancelada" && !r.tri.end?.rua && r.tri.lat != null && pontoConfiavel(r) && r.tri.origemCoord !== "endereco");
+    for (const r of l2) {
+      const e = await enderecoDe(r.tri.lat, r.tri.lng); await new Promise(x => setTimeout(x, 1100));
+      if (!e || !e.rua) continue; const v = r.tri.end || {};
+      r.tri.end = Object.assign({}, v, { rua: e.rua, bairro: v.bairro || e.bairro || "", mun: v.mun || e.mun || "" }); r.tri.upd = Date.now();
+      await salvarOS(r, "editada", "rua pelo mapa: " + e.rua); ok++;
+    }
+    if (ok) { aviso(`📍 ${ok} OS receberam rua/bairro pelo mapa`, 5000); render(); }
   } finally { _bairros = false; }
 }
 
@@ -14259,7 +14267,7 @@ async function abrirOS(id) {
       <dt>Vida útil</dt><dd style="color:${vidaCor(r)}">⏳ ${esc(vidaTxt(r))}<br><span class="small muted">triada ${brHora(r.tri.emFoto || r.criado.em)}${r.tri.emFoto ? " (data da foto)" : ""}${ativa(r.exec) ? " → executada " + brDia(r.exec.data) : ""}</span></dd>
       <dt>Pavimentação</dt><dd>${TIPOS[tipoDe(T)].ic} ${TIPOS[tipoDe(T)].n}</dd>
       <dt>Serviço</dt><dd>${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n || "")}${T.servicoConfirmado ? "" : ' <span class="tag pend">confirmar</span>'}</dd>
-      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>
+      <dt>Entulho</dt><dd>${T.entulho ? "Com remoção de entulhos" : "Sem remoção de entulhos"}</dd>${T.flags?.baseBoa ? "<dt>Base</dt><dd>✔ Base está boa</dd>" : ""}
       <dt>Medidas</dt><dd class="mono">${(T.trechos || []).filter(t => num(t.c) && num(t.l)).map(t => `${nf(num(t.c))} × ${nf(num(t.l))}`).join(" + ") || "—"}${c.diverge ? `<br><span class="small" style="color:var(--bad)">medidas somam ${nf(c.areaMedida)} m²; adotado o total da OS (${nf(num(T.areaOS))} m²)</span>` : ""}</dd>
       <dt>Coordenada</dt><dd class="mono">${T.lat != null ? `<a href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a>` : "—"}</dd>
       ${T.end?.numFachada ? `<dt>Nº fachada</dt><dd>${esc(T.end.numFachada)}</dd>` : ""}
@@ -14442,10 +14450,9 @@ function abrirForm(r, op = {}) {
     <div class="calc" id="fcalc"></div>
     <div class="small muted" style="margin:4px 2px 0">Asfalto: espessura 3 cm · 2,4 t/m³ (0,072 t por m²) · caminhão ${CARGA} t · calçada e paralelo: só m²</div>
     <label class="f">Situação / observação</label>
-    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização, carro sobre o reparo…">${esc(T.obs || "")}</textarea>
+    <textarea class="in" id="fobs" placeholder="Ex.: buraco aberto, sem sinalização…">${esc(T.obs || "")}</textarea>
     <div class="row" style="margin-top:6px;font-size:13.5px">
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcarro" ${T.flags?.carro ? "checked" : ""}> Carro sobre o reparo</label>
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fterra" ${T.flags?.terra ? "checked" : ""}> Só terra (sem base)</label>
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fbase" ${T.flags?.baseBoa ? "checked" : ""}> Base está boa</label>
     </div>
     <label class="f">Dia da triagem</label><input class="in" type="date" id="fdia" value="${T.dia}">
     <div class="small muted" id="fdianota" style="margin-top:4px">${T.emFoto ? "📅 Pela data da foto: " + brHora(T.emFoto) : "Vale a data da foto: ao pôr as fotos, o dia se ajusta sozinho."}</div>
@@ -14660,7 +14667,7 @@ function abrirForm(r, op = {}) {
     T.end.aConfirmar = !T.end.rua;
     if (LOC) { T.lat = LOC.lat; T.lng = LOC.lng; T.origemCoord = LOC.origem; T.precisao = LOC.acc || null; if (LOC.origem === "endereco") T.geoPeloEnd = 1; }
     T.obs = $("#fobs", s).value.trim();
-    T.flags = { carro: $("#fcarro", s).checked, terra: $("#fterra", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
+    T.flags = { baseBoa: $("#fbase", s).checked, escura: FN.some(f => f.brilho < 60) || !!T.flags?.escura };
     // fotos novas: carimbo com OS + endereço + coordenada
     const endC = endTxt(T.end);
     for (let i = 0; i < FN.length; i++) {
@@ -14696,10 +14703,10 @@ const COR = { triada: "#f2b705", programada: "#2a62a6", executada: "#23764a", ca
 function telaRota(m) {
   ROTA.data = ROTA.data || somaDias(isoDia(), 0);
   m.innerHTML = `
-  <div class="seg" style="margin-bottom:10px"><button data-modo="rota" class="${ROTA.modo === "rota" ? "on" : ""}">🚚 Rota</button><button data-modo="sobra" class="${ROTA.modo === "sobra" ? "on" : ""}">♻️ Aproveitar</button><button data-modo="mapa" class="${ROTA.modo === "mapa" ? "on" : ""}">🗺️ Mapa</button></div>
+  <div class="seg" style="margin-bottom:10px;font-size:13px;white-space:nowrap"><button data-modo="rota" class="${ROTA.modo === "rota" ? "on" : ""}">🚚 Rota</button><button data-modo="duas" class="${ROTA.modo === "duas" ? "on" : ""}">👥 2 equipes</button><button data-modo="sobra" class="${ROTA.modo === "sobra" ? "on" : ""}">♻️ Aproveitar</button><button data-modo="mapa" class="${ROTA.modo === "mapa" ? "on" : ""}">🗺️ Mapa</button></div>
   <div id="rbox"></div>`;
   $$("[data-modo]", m).forEach(b => b.onclick = () => { ROTA.modo = b.dataset.modo; render(); });
-  ROTA.modo === "mapa" ? mapaGeral($("#rbox", m)) : ROTA.modo === "sobra" ? sobraMassa($("#rbox", m)) : rotaEquipe($("#rbox", m));
+  ROTA.modo === "mapa" ? mapaGeral($("#rbox", m)) : ROTA.modo === "sobra" ? sobraMassa($("#rbox", m)) : ROTA.modo === "duas" ? duasEquipes($("#rbox", m)) : rotaEquipe($("#rbox", m));
 }
 
 function novoMapa(el) {
@@ -14921,6 +14928,109 @@ function sobraMassa(box) {
   }
 }
 
+/* ================= Programação de duas equipes de uma vez (ex.: 1041 e 1171) =================
+   Divide as OS pendentes em duas regiões (as mais perto ficam juntas), monta a rota de cada
+   equipe até a hora do fim do serviço e programa as duas com um toque. Dá pra trocar OS de equipe. */
+let DUAS = { a: "1041", b: "1171", fim: "17:00", tipo: "asfalto", sel: null, chave: "" };
+const COR_EQ = { a: "#2a62a6", b: "#c2410c" };
+function divideDuas(rs) {
+  const com = rs.filter(r => r.tri.lat != null); const sel = {};
+  if (com.length < 2) { com.forEach(r => sel[r.id] = "a"); return sel; }
+  // dois centros: as duas OS mais distantes entre si; depois ajusta (k-médias) e equilibra o tempo
+  let p = com[0], q = com[0], md = -1;
+  for (const x of com) for (const y of com) { const d = distM([x.tri.lat, x.tri.lng], [y.tri.lat, y.tri.lng]); if (d > md) { md = d; p = x; q = y; } }
+  let ca = [p.tri.lat, p.tri.lng], cb = [q.tri.lat, q.tri.lng];
+  for (let it = 0; it < 12; it++) {
+    com.forEach(r => { const c = [r.tri.lat, r.tri.lng]; sel[r.id] = distM(c, ca) <= distM(c, cb) ? "a" : "b"; });
+    const media = k => { const l = com.filter(r => sel[r.id] === k); return l.length ? [l.reduce((s, r) => s + r.tri.lat, 0) / l.length, l.reduce((s, r) => s + r.tri.lng, 0) / l.length] : null; };
+    ca = media("a") || ca; cb = media("b") || cb;
+  }
+  // equilibra: se uma equipe tiver muito mais serviço (min), passa para a outra as OS da borda
+  const carga = k => com.filter(r => sel[r.id] === k).reduce((s, r) => s + 12 + 4 * r._c.area, 0);
+  for (let it = 0; it < com.length; it++) {
+    const A = carga("a"), B = carga("b"); const de = A > B ? "a" : "b", para = de === "a" ? "b" : "a"; const cPara = de === "a" ? cb : ca;
+    const cand = com.filter(r => sel[r.id] === de).sort((x, y) => distM([x.tri.lat, x.tri.lng], cPara) - distM([y.tri.lat, y.tri.lng], cPara))[0];
+    if (!cand) break; const m = 12 + 4 * cand._c.area;
+    if (Math.abs((A - m) - (B + m)) >= Math.abs(A - B)) break;
+    sel[cand.id] = para;
+  }
+  return sel;
+}
+function duasEquipes(box) {
+  ROTA.data = ROTA.data || isoDia();
+  const cand = [...OS.values()].filter(r => r._st === "triada" && (DUAS.tipo === "todos" || tipoDe(r.tri) === DUAS.tipo));
+  const chave = cand.map(r => r.id).sort().join() + "|" + DUAS.tipo;
+  if (!DUAS.sel || DUAS.chave !== chave) { DUAS.sel = divideDuas(cand); DUAS.chave = chave; }
+  const fimMin = (() => { const [h, m] = DUAS.fim.split(":").map(Number); return h * 60 + m; })();
+  const toMin = s => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+  const plano = {};
+  for (const k of ["a", "b"]) {
+    const l = cand.filter(r => DUAS.sel[r.id] === k); const seq = ordenar(l, null); const cr = cronograma(seq, ROTA.hora || "07:00");
+    const cabe = cr.filter(x => toMin(x.fim) <= fimMin || toMin(x.fim) < toMin(ROTA.hora || "07:00")).map(x => x.r);
+    const sobra = seq.filter(r => !cabe.includes(r));
+    const crOk = cronograma(cabe, ROTA.hora || "07:00");
+    plano[k] = { seq: cabe, cr: crOk, sobra, t: totais(cabe) };
+  }
+  const semPonto = cand.filter(r => !DUAS.sel[r.id]);
+  const nomeEq = k => DUAS[k] || (k === "a" ? "A" : "B");
+  const cardEq = k => { const p = plano[k], o = k === "a" ? "b" : "a";
+    return `<div class="card" style="border-left:5px solid ${COR_EQ[k]}"><h2>🚚 Equipe ${esc(nomeEq(k))} <span class="r">${brDia(ROTA.data)}</span></h2>
+    <div class="calc" style="margin-top:0"><div><b>${p.t.n}</b><span>OS</span></div><div><b>${nf(p.t.massa, 1)}</b><span>t CBUQ</span></div><div><b>${Math.ceil(p.t.massa / CARGA) || 0}</b><span>carga(s) ${CARGA} t</span></div></div>
+    ${p.cr.length ? `<div class="small muted" style="margin:6px 0">${nf(p.t.area, 1)} m² · saída ${ROTA.hora || "07:00"} · término previsto ${p.cr[p.cr.length - 1].fim}</div>` : '<div class="small muted">Nenhuma OS para esta equipe.</div>'}
+    ${p.cr.map((x, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:${COR_EQ[k]};color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${x.r.id}"><b>OS ${esc(x.r.os)}</b> · ${esc(endTxt(x.r.tri.end, 1))}<br><span class="small muted">${TIPOS[tipoDe(x.r.tri)].ic} ${esc(setorDe(x.r.tri))} · <span class="mono">${nf(x.r._c.area)} m²${x.r._c.massa ? " · " + nf(x.r._c.massa) + " t" : ""}</span> · ${x.ini}–${x.fim}</span></span><button class="btn sm" style="flex:none" data-dtroca="${x.r.id}" title="Passar para a equipe ${esc(nomeEq(o))}">⇄ ${esc(nomeEq(o))}</button></div>`).join("")}
+    ${p.sobra.length ? `<div class="small" style="margin-top:8px;color:var(--bad)">⏰ Não cabem até ${DUAS.fim}: ${p.sobra.map(r => "OS " + esc(r.os)).join(", ")} (ficam para outro dia)</div>` : ""}
+    ${p.seq.length ? `<button class="btn w" style="margin-top:8px" data-dzap="${k}">💬 Enviar rota da equipe ${esc(nomeEq(k))}</button>` : ""}
+    </div>`; };
+  box.innerHTML = `
+  <div class="card">
+    <h2>👥 Programar duas equipes</h2>
+    <div class="small muted" style="margin-top:-4px">O app divide as OS em duas regiões, monta a rota de cada equipe e programa as duas de uma vez. Toque em ⇄ para trocar uma OS de equipe.</div>
+    <div class="grid2"><div><label class="f">Equipe 1</label>${campoEquipe("dqa", DUAS.a)}</div><div><label class="f">Equipe 2</label>${campoEquipe("dqb", DUAS.b)}</div></div>
+    <label class="f">Data</label><input class="in" type="date" id="ddt" value="${ROTA.data}">
+    <div class="grid2"><div><label class="f">Saída</label><input class="in" type="time" id="dhr" value="${ROTA.hora || "07:00"}"></div><div><label class="f">Fim do serviço</label><input class="in" type="time" id="dfim" value="${DUAS.fim}"></div></div>
+    <div class="chips" style="margin-top:8px">${[["asfalto", "🛣️ Asfalto"], ["calcada", "🚶 Calçada"], ["paralelo", "🧱 Paralelo"], ["todos", "Todos"]].map(([k, n]) => `<button class="chip ${DUAS.tipo === k ? "on" : ""}" data-dtp="${k}">${n}</button>`).join("")}</div>
+    <div class="small muted">${cand.length} OS triadas sem programação${DUAS.tipo === "todos" ? "" : " (" + TIPOS[DUAS.tipo].n.toLowerCase() + ")"}.</div>
+    <button class="btn sm" style="margin-top:6px" id="drefaz">🔄 Dividir de novo</button>
+  </div>
+  <div id="map" style="height:320px;margin:0 0 10px"></div>
+  ${cardEq("a")}${cardEq("b")}
+  ${semPonto.length ? `<div class="card"><h2>📍 Sem ponto no mapa <span class="r">${semPonto.length} OS</span></h2>${semPonto.map(r => `<div class="achado" style="align-items:center"><span style="flex:1"><b>OS ${esc(r.os)}</b> · ${esc(endTxt(r.tri.end, 1))}</span><button class="btn sm" style="flex:none" data-dpara="a" data-did="${r.id}">+ ${esc(nomeEq("a"))}</button><button class="btn sm" style="flex:none" data-dpara="b" data-did="${r.id}">+ ${esc(nomeEq("b"))}</button></div>`).join("")}</div>` : ""}
+  ${pode("programar") && (plano.a.seq.length || plano.b.seq.length) ? `<button class="btn bl w" id="dprog" style="margin-bottom:12px">✅ Programar as duas equipes (${plano.a.seq.length} + ${plano.b.seq.length} OS)</button>` : ""}`;
+  const eqA = $("#dqa", box), eqB = $("#dqb", box); let tm;
+  eqA.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { DUAS.a = eqA.value.trim(); render(); }, 700); };
+  eqB.oninput = () => { clearTimeout(tm); tm = setTimeout(() => { DUAS.b = eqB.value.trim(); render(); }, 700); };
+  $("#ddt", box).onchange = e => { ROTA.data = e.target.value; render(); };
+  $("#dhr", box).onchange = e => { ROTA.hora = e.target.value; render(); };
+  $("#dfim", box).onchange = e => { DUAS.fim = e.target.value || "17:00"; render(); };
+  $("#drefaz", box).onclick = () => { DUAS.sel = null; render(); };
+  box.onclick = async e => {
+    const tp = e.target.closest("[data-dtp]"); if (tp) { DUAS.tipo = tp.dataset.dtp; DUAS.sel = null; return render(); }
+    const tr = e.target.closest("[data-dtroca]"); if (tr) { const id = tr.dataset.dtroca; DUAS.sel[id] = DUAS.sel[id] === "a" ? "b" : "a"; return render(); }
+    const pa = e.target.closest("[data-dpara]"); if (pa) { DUAS.sel[pa.dataset.did] = pa.dataset.dpara; return render(); }
+    const z = e.target.closest("[data-dzap]"); if (z) { const k = z.dataset.dzap, p = plano[k];
+      return compartilhar(`🚚 Rota equipe ${nomeEq(k)} — ${brDia(ROTA.data)}\n${p.t.n} OS · ${nf(p.t.area)} m² · ${nf(p.t.massa)} t · ${Math.ceil(p.t.massa / CARGA)} carga(s)\n\n` + p.cr.map((x, i) => `${i + 1}. OS ${x.r.os} — ${endTxt(x.r.tri.end)} — ${nf(x.r._c.area)} m²${x.r._c.massa ? " · " + nf(x.r._c.massa) + " t" : ""} (${x.ini})${x.r.tri.lat != null ? "\n   🧭 " + navUrl(x.r.tri.lat, x.r.tri.lng) : ""}`).join("\n")); }
+    const pr = e.target.closest("#dprog"); if (pr) {
+      if (!DUAS.a || !DUAS.b) return aviso("Digite o número das duas equipes");
+      if (DUAS.a === DUAS.b) return aviso("As duas equipes estão com o mesmo número");
+      if (!confirm(`Programar ${plano.a.seq.length} OS para a equipe ${DUAS.a} e ${plano.b.seq.length} OS para a equipe ${DUAS.b} em ${brDia(ROTA.data)}?`)) return;
+      await lembrarEquipe(DUAS.a); await lembrarEquipe(DUAS.b);
+      for (const k of ["a", "b"]) for (let i = 0; i < plano[k].seq.length; i++) { const r = plano[k].seq[i]; r.prog = { equipe: DUAS[k], data: ROTA.data, ordem: i + 1, por: EU.id, em: Date.now(), upd: Date.now() }; await salvarOS(r, "programada", `equipe ${DUAS[k]} · ${brDia(ROTA.data)} · ${i + 1}º`); }
+      aviso(`✅ Programadas: ${plano.a.seq.length} OS para a ${esc(DUAS.a)} e ${plano.b.seq.length} para a ${esc(DUAS.b)}`, 6000); DUAS.sel = null; render();
+    }
+  };
+  const mp = novoMapa($("#map", box));
+  if (mp) setTimeout(() => {
+    if (mp !== _map) return; mp.invalidateSize(); const pts = [];
+    for (const k of ["a", "b"]) { const lp = [];
+      plano[k].seq.forEach((r, i) => { if (r.tri.lat == null) return; const c = [r.tri.lat, r.tri.lng]; L.marker(c, { icon: pinIcon(COR_EQ[k], `${nomeEq(k)} ${i + 1}`) }).addTo(mp).on("click", () => abrirOS(r.id)); lp.push(c); pts.push(c); });
+      if (lp.length > 1) L.polyline(lp, { color: COR_EQ[k], weight: 3, dashArray: "6 6" }).addTo(mp);
+      plano[k].sobra.forEach(r => { if (r.tri.lat == null) return; L.marker([r.tri.lat, r.tri.lng], { icon: pinIcon("#7c7f7a", r.os) }).addTo(mp); pts.push([r.tri.lat, r.tri.lng]); });
+    }
+    if (pts.length) mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16, animate: false });
+  }, 60);
+}
+
+const PRAZO_DIAS = 5;
 /* ================= Agentes (conferência automática) =================
    n: 1 = atenção, 2 = problema. Cada agente olha as OS e devolve achados. */
 const AGENTES = [
@@ -14937,8 +15047,6 @@ const AGENTES = [
     f(r) { const F = r.tri.fotos || [], a = [];
       if (!F.length) a.push({ n: 2, t: "OS sem foto" }); else if (F.length < 2) a.push({ n: 1, t: "Só 1 foto (o padrão é 2 a 3)" });
       if (F.some(f => f.brilho != null && f.brilho < 60) || r.tri.flags?.escura) a.push({ n: 1, t: "Foto escura/noturna: conferir" });
-      if (r.tri.flags?.carro) a.push({ n: 1, t: "Carro sobre o reparo" });
-      if (r.tri.flags?.terra && r._st === "executada") a.push({ n: 2, t: "Marcada como só terra e já com baixa" });
       return a; } },
   { id: "car", ic: "🚚", nome: "Agente Cargas", d: `Caminhão de ${CARGA} t e soma por equipe/dia`,
     f(r) { const a = []; if (r._c.massa > CARGA) a.push({ n: 1, t: `${nf(r._c.massa)} t: precisa de ${Math.ceil(r._c.massa / CARGA)} cargas` }); return a; },
@@ -14952,10 +15060,11 @@ const AGENTES = [
       if (!r._c.area) a.push({ n: 2, t: "Sem medidas" });
       const dup = [...OS.values()].filter(x => x.os === r.os && x.id !== r.id && x._st !== "cancelada"); if (dup.length) a.push({ n: 2, t: "OS duplicada no sistema" });
       return a; } },
-  { id: "prz", ic: "⏱", nome: "Agente Prazo", d: "Triada parada e programação vencida",
+  { id: "prz", ic: "⏱", nome: "Agente Prazo", d: "Triada parada e programação vencida (prazo de 5 dias)",
     f(r) { const a = [], h = isoDia();
-      if (r._st === "triada") { const d = diasEntre(r.tri.dia, h); if (d >= 7) a.push({ n: 2, t: `Triada há ${d} dias sem programação` }); else if (d >= 3) a.push({ n: 1, t: `Triada há ${d} dias sem programação` }); }
-      if (r._st === "programada" && r.prog.data < h) a.push({ n: 2, t: `Programada para ${brDia(r.prog.data)} e sem baixa` });
+      /* prazo de 5 dias (pedido do Estevam em 02/11/2026, por causa de feriado/fim de semana) */
+      if (r._st === "triada") { const d = diasEntre(r.tri.dia, h); if (d >= 10) a.push({ n: 2, t: `Triada há ${d} dias sem programação` }); else if (d >= PRAZO_DIAS) a.push({ n: 1, t: `Triada há ${d} dias sem programação` }); }
+      if (r._st === "programada" && diasEntre(r.prog.data, h) >= PRAZO_DIAS) a.push({ n: 2, t: `Programada para ${brDia(r.prog.data)} e sem baixa há ${diasEntre(r.prog.data, h)} dias` });
       return a; } },
   { id: "cnf", ic: "🔍", nome: "Agente Conferência", d: "Executadas aguardando o gerente conferir",
     f(r) { const a = []; if (r._st === "executada" && !ativa(r.conf)) a.push({ n: 1, t: "Executada, aguardando conferência" }); if (ativa(r.conf) && !r.conf.ok) a.push({ n: 2, t: "Conferência com divergência" + (r.conf.obs ? ": " + r.conf.obs : "") }); return a; } },
@@ -15094,7 +15203,7 @@ function secaoRDS(r, n) {
     <div class="cfg"><div class="cfc"><h4>Vistoria · ${brDia(isoDia(new Date(em)))} às ${hora(em)}</h4>
       <p><b>Medidas:</b> ${esc((T.trechos || []).map(t => `${t.c} x ${t.l} m`).join(" + ") || "—")}${num(T.areaOS) ? ` (total da OS ${nf(num(T.areaOS))} m²)` : ""}</p>
       <p><b>Área:</b> ${nf(c.area)} m²${c.volume ? ` · <b>Volume:</b> ${nf(c.volume, 3)} m³ (3 cm)` : ""}${c.massa ? ` · <b>Massa:</b> ${nf(c.massa, 3)} t` : ""}</p>
-      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos</p>
+      <p><b>Serviço:</b> ${esc(T.servico)} — ${esc((SERV[T.servico] || {}).n)}, ${T.entulho ? "com" : "sem"} remoção de entulhos${T.flags?.baseBoa ? " · <b>base está boa</b>" : ""}</p>
       <p><b>Pavimentação:</b> ${TIPOS[tipoDe(T)].n} · <b>Status:</b> ${esc(sit)}</p>
       ${T.lat != null ? `<p><b>Coordenadas:</b> <a class="nav" href="${navUrl(T.lat, T.lng)}">${T.lat.toFixed(6)}, ${T.lng.toFixed(6)}</a></p>` : ""}
       <p><b>Triagem:</b> ${esc(nomePerfil(r.criado.por))} · <b>Vida útil:</b> ${esc(vidaTxt(r))}</p>
