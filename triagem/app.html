@@ -773,6 +773,9 @@ textarea.in{min-height:70px;resize:vertical}
 .empty{text-align:center;color:var(--muted);padding:30px 10px}
 #map{position:relative;z-index:0;isolation:isolate;height:calc(100vh - 210px);min-height:320px;border-radius:var(--r);box-shadow:var(--sh)}
 .pin{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.toa-it{display:flex;gap:12px;align-items:flex-start;padding:12px 2px;border-top:1px solid var(--soft);font-size:13.5px;line-height:1.35}
+.toa-l{width:32px;height:32px;border-radius:4px;color:#06343b;display:flex;align-items:center;justify-content:center;font:700 14px var(--mono);flex:none}
+.toa-txt{flex:1;cursor:pointer}.toa-txt .sv{text-transform:uppercase}
 .pinlbl{background:#fff;border-radius:6px;padding:1px 5px;font:700 11px var(--mono);box-shadow:0 1px 4px rgba(0,0,0,.3);white-space:nowrap}
 .legend{display:flex;gap:12px;font-size:12.5px;margin:8px 2px;flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
@@ -13273,7 +13276,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 31;                       // versão da interface (sobe a cada publicação)
+const APP_V = 32;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13286,6 +13289,7 @@ const SERV = {
   "613286": { n: "Recomposição de calçada — U.C. (via local)", cbuq: 0, tipo: "calcada" },
   "613284": { n: "Recomposição de calçada — U.C. (via arterial)", cbuq: 0, tipo: "calcada" },
   "613265": { n: "Recomposição de lajota / paralelepípedo — LOG (via local)", cbuq: 0, tipo: "paralelo" },
+  "613274": { n: "Recomposição de lajota / paralelepípedo — LOG (via arterial)", cbuq: 0, tipo: "paralelo" },
 };
 /* tipo de pavimentação: Asfalto / Calçada / Paralelo */
 const TIPOS = {
@@ -14762,6 +14766,18 @@ function cronograma(seq, inicioHora = "07:00") {
   });
 }
 
+
+/* ---------- padrão de rota do TOA: letras A, B, C… no mapa e na lista, "OS ( código - DESCRIÇÃO ) endereço" ---------- */
+const TOA = "#4fc3c8";
+const letra = i => { let s = "", n = i + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+const pinLetra = (cor, t) => L.divIcon({ className: "", iconSize: [32, 40], iconAnchor: [16, 38], html: `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${cor};border:2px solid #0b4f5a;box-shadow:0 2px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center"><b style="transform:rotate(45deg);color:#06343b;font:700 12px var(--mono)">${t}</b></div>` });
+const itemDDS = (hora) => `<div class="toa-it"><span class="toa-l" style="background:#cfd3d6"></span><div class="toa-txt" style="cursor:default"><b>DDS</b><div class="small muted">Diálogo diário de segurança · ${hora || "07:00"}</div></div></div>`;
+function itemToa(x, i, cor, extra) {
+  const r = x.r, T = r.tri;
+  return `<div class="toa-it"><span class="toa-l" style="background:${cor}">${letra(i)}</span><div class="toa-txt" data-os="${r.id}"><b>${esc(r.os)}</b> <span class="sv">( ${esc(T.servico)} - ${esc(((SERV[T.servico] || {}).n || "").replace(/ — /g, " - "))} )</span> ${esc(endTxt(T.end))}
+    <div class="small muted" style="margin-top:3px">${x.ini}–${x.fim} · <span class="mono">${nf(r._c.area)} m²${r._c.massa ? " · " + nf(r._c.massa) + " t" : ""}</span>${x.carga ? " · carga " + x.carga : ""}${T.lat == null ? " · <b style='color:var(--bad)'>sem coordenada</b>" : ""}${duplicatas(r).length ? `<br><b style="color:var(--bad)">⚠ ${esc(dupTxt(duplicatas(r)[0]))}</b>` : ""}</div></div>${extra || ""}</div>`;
+}
+
 function rotaEquipe(box) {
   const progDia = [...OS.values()].filter(r => r._st === "programada" && r.prog.data === ROTA.data && (!ROTA.equipe || r.prog.equipe === ROTA.equipe));
   if (!ROTA.ids) ROTA.ids = progDia.map(r => r.id);
@@ -14779,7 +14795,7 @@ function rotaEquipe(box) {
     <div class="calc" style="margin-top:0"><div><b>${t.n}</b><span>OS</span></div><div><b>${nf(t.massa, 1)}</b><span>t CBUQ</span></div><div><b>${Math.ceil(t.massa / CARGA) || 0}</b><span>carga(s) ${CARGA} t</span></div></div>
     ${cr.length ? `<div class="small muted" style="margin:6px 0">Término previsto ${cr[cr.length - 1].fim} (12 min + 4 min/m² por OS, deslocamento 5/15 min, almoço 1 h)</div>` : ""}
     <div id="map" style="height:300px;margin:8px 0"></div>
-    ${cr.map((x, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:var(--asfalto);color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${x.r.id}"><b>OS ${esc(x.r.os)}</b> · ${esc(endTxt(x.r.tri.end, 1))}<br><span class="small muted">${TIPOS[tipoDe(x.r.tri)].ic} ${esc(x.r.tri.end?.bairro || "")} · <span class="mono">${nf(x.r._c.area)} m² · ${nf(x.r._c.massa)} t</span> · ${x.ini}–${x.fim} · carga ${x.carga}${x.r.tri.lat == null ? " · <b style='color:var(--bad)'>sem coordenada</b>" : ""}${duplicatas(x.r).length ? `<br><b style="color:var(--bad)">⚠ ${esc(dupTxt(duplicatas(x.r)[0]))}</b>` : ""}</span></span>${x.r.tri.lat != null ? `<a class="navb" href="${navUrl(x.r.tri.lat, x.r.tri.lng)}">🧭</a>` : ""}<button class="btn sm r" data-rtira="${x.r.id}" style="flex:none">✕</button></div>`).join("") || '<div class="muted small">Nenhuma OS na rota. Adicione abaixo as que faltam fazer.</div>'}
+    ${cr.length ? itemDDS(ROTA.hora) : ""}${cr.map((x, i) => itemToa(x, i, TOA, `${x.r.tri.lat != null ? `<a class="navb" href="${navUrl(x.r.tri.lat, x.r.tri.lng)}">🧭</a>` : ""}<button class="btn sm r" data-rtira="${x.r.id}" style="flex:none">✕</button>`)).join("") || '<div class="muted small">Nenhuma OS na rota. Adicione abaixo as que faltam fazer.</div>'}
     ${seq.length ? `<div class="row" style="margin-top:10px"><button class="btn" id="rgm">🧭 Abrir no Google Maps</button><button class="btn" id="rzap">💬 Enviar rota</button></div>
     ${pode("programar") ? `<button class="btn bl w" style="margin-top:8px" id="rprog">✅ Programar estas ${seq.length} OS para a equipe ${esc(ROTA.equipe || "?")}</button>` : ""}` : ""}
   </div>
@@ -14819,8 +14835,8 @@ function rotaEquipe(box) {
   if (mp) setTimeout(() => {
     if (mp !== _map) return; mp.invalidateSize(); const pts = [];
     if (ROTA.inicio) { L.circleMarker(ROTA.inicio, { radius: 8, color: "#fff", fillColor: "#1f2a1d", fillOpacity: 1, weight: 3 }).addTo(mp).bindTooltip("Saída"); pts.push(ROTA.inicio); }
-    comC.forEach(r => { const i = seq.indexOf(r) + 1; L.marker([r.tri.lat, r.tri.lng], { icon: pinIcon(COR[r._st], i + " · " + r.os) }).addTo(mp).on("click", () => abrirOS(r.id)); pts.push([r.tri.lat, r.tri.lng]); });
-    if (pts.length > 1) L.polyline(pts, { color: "#1f2a1d", weight: 3, dashArray: "6 6" }).addTo(mp);
+    comC.forEach(r => { const i = seq.indexOf(r); L.marker([r.tri.lat, r.tri.lng], { icon: pinLetra(TOA, letra(i)) }).addTo(mp).bindTooltip("OS " + r.os).on("click", () => abrirOS(r.id)); pts.push([r.tri.lat, r.tri.lng]); });
+    if (pts.length > 1) L.polyline(pts, { color: "#1565c0", weight: 4, opacity: .9 }).addTo(mp);
     if (pts.length) mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16, animate: false });
   }, 60);
 }
@@ -14977,7 +14993,7 @@ function duasEquipes(box) {
     return `<div class="card" style="border-left:5px solid ${COR_EQ[k]}"><h2>🚚 Equipe ${esc(nomeEq(k))} <span class="r">${brDia(ROTA.data)}</span></h2>
     <div class="calc" style="margin-top:0"><div><b>${p.t.n}</b><span>OS</span></div><div><b>${nf(p.t.massa, 1)}</b><span>t CBUQ</span></div><div><b>${Math.ceil(p.t.massa / CARGA) || 0}</b><span>carga(s) ${CARGA} t</span></div></div>
     ${p.cr.length ? `<div class="small muted" style="margin:6px 0">${nf(p.t.area, 1)} m² · saída ${ROTA.hora || "07:00"} · término previsto ${p.cr[p.cr.length - 1].fim}</div>` : '<div class="small muted">Nenhuma OS para esta equipe.</div>'}
-    ${p.cr.map((x, i) => `<div class="achado" style="align-items:center"><span class="pinlbl" style="background:${COR_EQ[k]};color:#fff;flex:none">${i + 1}</span><span style="flex:1" data-os="${x.r.id}"><b>OS ${esc(x.r.os)}</b> · ${esc(endTxt(x.r.tri.end, 1))}<br><span class="small muted">${TIPOS[tipoDe(x.r.tri)].ic} ${esc(setorDe(x.r.tri))} · <span class="mono">${nf(x.r._c.area)} m²${x.r._c.massa ? " · " + nf(x.r._c.massa) + " t" : ""}</span> · ${x.ini}–${x.fim}</span></span><button class="btn sm" style="flex:none" data-dtroca="${x.r.id}" title="Passar para a equipe ${esc(nomeEq(o))}">⇄ ${esc(nomeEq(o))}</button></div>`).join("")}
+    ${p.cr.length ? itemDDS(ROTA.hora) : ""}${p.cr.map((x, i) => itemToa(x, i, k === "a" ? TOA : "#f6ad55", `<button class="btn sm" style="flex:none" data-dtroca="${x.r.id}" title="Passar para a equipe ${esc(nomeEq(o))}">⇄ ${esc(nomeEq(o))}</button>`)).join("")}
     ${p.sobra.length ? `<div class="small" style="margin-top:8px;color:var(--bad)">⏰ Não cabem até ${DUAS.fim}: ${p.sobra.map(r => "OS " + esc(r.os)).join(", ")} (ficam para outro dia)</div>` : ""}
     ${p.seq.length ? `<button class="btn w" style="margin-top:8px" data-dzap="${k}">💬 Enviar rota da equipe ${esc(nomeEq(k))}</button>` : ""}
     </div>`; };
@@ -15022,8 +15038,8 @@ function duasEquipes(box) {
   if (mp) setTimeout(() => {
     if (mp !== _map) return; mp.invalidateSize(); const pts = [];
     for (const k of ["a", "b"]) { const lp = [];
-      plano[k].seq.forEach((r, i) => { if (r.tri.lat == null) return; const c = [r.tri.lat, r.tri.lng]; L.marker(c, { icon: pinIcon(COR_EQ[k], `${nomeEq(k)} ${i + 1}`) }).addTo(mp).on("click", () => abrirOS(r.id)); lp.push(c); pts.push(c); });
-      if (lp.length > 1) L.polyline(lp, { color: COR_EQ[k], weight: 3, dashArray: "6 6" }).addTo(mp);
+      plano[k].seq.forEach((r, i) => { if (r.tri.lat == null) return; const c = [r.tri.lat, r.tri.lng]; L.marker(c, { icon: pinLetra(k === "a" ? TOA : "#f6ad55", letra(i)) }).addTo(mp).bindTooltip(`Equipe ${nomeEq(k)} · OS ${r.os}`).on("click", () => abrirOS(r.id)); lp.push(c); pts.push(c); });
+      if (lp.length > 1) L.polyline(lp, { color: COR_EQ[k], weight: 4, opacity: .9 }).addTo(mp);
       plano[k].sobra.forEach(r => { if (r.tri.lat == null) return; L.marker([r.tri.lat, r.tri.lng], { icon: pinIcon("#7c7f7a", r.os) }).addTo(mp); pts.push([r.tri.lat, r.tri.lng]); });
     }
     if (pts.length) mp.fitBounds(pts, { padding: [40, 40], maxZoom: 16, animate: false });
