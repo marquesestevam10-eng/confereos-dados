@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 27,
+  "v": 28,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-27.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-28.html"
  },
  "apk": {
   "v": 7,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Município no lugar de bairro a confirmar",
- "data": "01/11/2026"
+ "nota": "Setores: Aracaju por bairro",
+ "data": "02/11/2026"
 }
