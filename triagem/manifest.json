@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 45,
+  "v": 46,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-45.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-46.html"
  },
  "apk": {
   "v": 7,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 45: tela de triagem fixa, só sai salvando",
+ "nota": "Interface 46: baixa por arquivo (Excel, PDF, Word, CSV)",
  "data": "03/11/2026"
 }
