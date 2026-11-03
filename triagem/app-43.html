@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 40;                       // versão da interface (sobe a cada publicação)
+const APP_V = 43;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13498,6 +13498,7 @@ let TOKEN = CFG.token || "", REPO = CFG.repo || "marquesestevam10-eng/triagemos-
 const temServidor = () => !!TOKEN;
 
 async function syncCarregar() {
+  try { ACESSOS = (await kvGet("acessos")) || {}; } catch (e) { }
   const s = await kvGet("sync"); if (s) Object.assign(SYNC, s, { rodando: false });
   const t = await kvGet("tokenManual"); if (!TOKEN && t) TOKEN = t;
   const rp = await kvGet("repoManual"); if (!CFG.repo && rp) REPO = rp;
@@ -13506,7 +13507,11 @@ const syncSalvar = () => kvSet("sync", { sha: SYNC.sha, etag: SYNC.etag, fila: S
 
 async function gh(path, opt = {}) {
   const h = Object.assign({ Authorization: "Bearer " + TOKEN, "X-GitHub-Api-Version": "2022-11-28", Accept: "application/vnd.github+json" }, opt.headers || {});
-  return fetch("https://api.github.com/repos/" + REPO + path, Object.assign({}, opt, { headers: h, cache: "no-store" }));
+  // tempo máximo por pedido: se a internet travar no meio de um envio, desiste e tenta de novo na próxima volta (antes a fila podia ficar parada)
+  const ac = new AbortController(), ms = opt.method === "PUT" ? 90000 : 30000, tm = setTimeout(() => ac.abort(), ms);
+  return fetch("https://api.github.com/repos/" + REPO + path, Object.assign({}, opt, { headers: h, cache: "no-store", signal: ac.signal }))
+    .catch(e => { throw new Error(e && e.name === "AbortError" ? "internet lenta: tempo esgotado" : (e && e.message) || "sem conexão"); })
+    .finally(() => clearTimeout(tm));
 }
 const b64utf8 = s => { const b = new TextEncoder().encode(s); let x = ""; for (let i = 0; i < b.length; i += 0x8000) x += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(x); };
 const utf8b64 = c => new TextDecoder().decode(Uint8Array.from(atob(c.replace(/\s/g, "")), ch => ch.charCodeAt(0)));
@@ -13520,14 +13525,14 @@ function enfileirar(item) {
 
 async function sincronizar(forcar) {
   if (!temServidor()) { SYNC.estado = "local"; syncUI(); return; }
-  if (SYNC.rodando) return; SYNC.rodando = true;
+  if (SYNC.rodando && Date.now() - (SYNC.desde || 0) < 180000) return; SYNC.rodando = true; SYNC.desde = Date.now();
   try {
     if (!navigator.onLine) throw new Error("offline");
     await enviarFila();
     await puxar(forcar);
     SYNC.estado = SYNC.fila.length ? "pend" : "ok"; SYNC.erro = ""; SYNC.ultimo = Date.now();
   } catch (e) {
-    SYNC.estado = (e.message === "offline" || e instanceof TypeError) ? "off" : "erro"; SYNC.erro = e.message || String(e);
+    SYNC.estado = (e.message === "offline" || e instanceof TypeError || /sem conexão|internet lenta/.test(e.message || "")) ? "off" : "erro"; SYNC.erro = e.message || String(e);
   } finally { SYNC.rodando = false; syncSalvar(); syncUI(); }
 }
 
@@ -13553,6 +13558,9 @@ async function puxar(forcar) {
     } else if (/^relatorios\/.+\.json$/.test(it.path) && SYNC.sha[it.path] !== it.sha) {
       const b = await gh("/git/blobs/" + it.sha); if (b.ok) { const rem = JSON.parse(utf8b64((await b.json()).content)); const loc = (await relAll()).find(x => x.id === rem.id); if (!loc || (rem.upd || 0) >= (loc.upd || 0)) await relPut(rem); }
       SYNC.sha[it.path] = it.sha;
+    } else if (/^acessos\/.+\.json$/.test(it.path) && SYNC.sha[it.path] !== it.sha) {
+      const b = await gh("/git/blobs/" + it.sha); if (b.ok) { try { const a = JSON.parse(utf8b64((await b.json()).content)); ACESSOS[a.perfil] = a; await kvSet("acessos", ACESSOS); } catch (e) { } }
+      SYNC.sha[it.path] = it.sha;
     } else if (it.path === "equipe.json" && SYNC.sha[it.path] !== it.sha) {
       const b = await gh("/git/blobs/" + it.sha); if (b.ok) { NOMES = Object.assign({}, JSON.parse(utf8b64((await b.json()).content)).nomes || {}, NOMES_LOCAL()); await kvSet("nomes", NOMES); }
       SYNC.sha[it.path] = it.sha; mudou = true;
@@ -13567,12 +13575,15 @@ function NOMES_LOCAL() { return EU && EU.nomeProprio ? { [EU.id]: EU.nome } : {}
 /* 1ª vez com servidor: sobe tudo que foi feito no modo local (OS, fotos e relatórios gravados) */
 async function subirLocal() {
   if (!temServidor() || await kvGet("subiuLocal1")) return;
+  for (let i = 0; i < 120 && SYNC.rodando; i++) await new Promise(ok => setTimeout(ok, 500));   // espera a sincronização em andamento
+  if (!SYNC.ultimo) { await sincronizar(true); if (!SYNC.ultimo) return; }      // primeiro baixa o que já está no servidor
   let n = 0;
   for (const r of OS.values()) {
+    if (SYNC.sha["os/" + r.id + ".json"]) continue;                              // já está no servidor: não reenvia
     for (const f of [...(r.tri?.fotos || []), ...(r.exec?.fotos || [])]) if (f && f.p && await fotoGet(f.p)) enfileirar({ t: "foto", p: f.p });
     enfileirar({ t: "os", id: r.id }); n++;
   }
-  try { for (const g of await relAll()) enfileirar({ t: "rel", id: g.id }); } catch (e) {}
+  try { for (const g of await relAll()) if (!SYNC.sha["relatorios/" + g.id + ".json"]) enfileirar({ t: "rel", id: g.id }); } catch (e) {}
   await kvSet("subiuLocal1", 1);
   if (n) aviso(`☁️ Servidor ligado: subindo ${n} OS deste celular`, 6000);
 }
@@ -13701,6 +13712,16 @@ window.addEventListener("online", () => { bannerSinal(); setTimeout(sinalVoltou,
 window.addEventListener("offline", () => { SYNC.estado = "off"; syncUI(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { sincronizar(); checarAtualizacao(); } });
 setInterval(() => { if (!document.hidden) sincronizar(); }, 40000);
+
+/* ---------- quem acessou: cada perfil grava a última entrada (no máximo 1x por hora por aparelho) em acessos/<perfil>.json ---------- */
+let ACESSOS = {};
+async function registrarAcesso() {
+  if (!EU || EU.id === "tela" || !temServidor() || !navigator.onLine) return;
+  const ult = await kvGet("acessoEnviado"); if (ult && ult.id === EU.id && Date.now() - ult.em < 36e5) return;
+  const onde = ANDROID ? "app Android" : (/iPhone|iPad/i.test(navigator.userAgent) ? "iPhone (navegador)" : /Android/i.test(navigator.userAgent) ? "celular (navegador)" : "computador (navegador)");
+  const a = { perfil: EU.id, nome: EU.nome, em: Date.now(), onde, versao: APP_V };
+  try { await enviarArquivo("acessos/" + EU.id + ".json", JSON.stringify(a, null, 1), `Acesso: ${EU.nome} · ${onde}`); ACESSOS[EU.id] = a; await kvSet("acessos", ACESSOS); await kvSet("acessoEnviado", { id: EU.id, em: Date.now() }); } catch (e) { }
+}
 
 /* ================= Fotos, GPS, endereço, mini-mapa e voz ================= */
 function lerExif(u8) {
@@ -14216,6 +14237,7 @@ function lista(f = {}) {
   let l = [...OS.values()];
   if (f.st === "ativas") l = l.filter(r => r._st === "triada" || r._st === "programada");
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
+  if (f.st !== "cancelada") l = l.filter(r => r._st !== "cancelada");   // cancelada não aparece (fica guardada no servidor)
   const hoje = isoDia();
   if (f.st === "maiores") return [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && r._c.area > 0 && (!f.tipo || f.tipo === "todos" || tipoDe(r.tri) === f.tipo)).sort((a, b) => b._c.area - a._c.area);
   if (f.st === "sinal") l = [...OS.values()].filter(esperandoSinal);
@@ -14308,7 +14330,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   const base = lista(Object.assign({}, FILTRO, { setor: "todos" })); const cont = {}; base.forEach(r => { const k = setorDe(r.tri); cont[k] = (cont[k] || 0) + 1; });
   const setores = Object.keys(cont).sort(ordemSetor); if (FILTRO.setor && FILTRO.setor !== "todos" && !cont[FILTRO.setor]) setores.unshift(FILTRO.setor);
@@ -15660,10 +15682,11 @@ function telaAjustes(m) {
   ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Área privada · conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>` : ""}
   <div class="card"><h2>☁️ Servidor</h2>
     <div class="kv small"><dt>Situação</dt><dd>${temServidor() ? ({ ok: "Conectado", pend: "Enviando", off: "Sem internet", erro: "Erro", init: "Conectando", local: "—" }[SYNC.estado] || SYNC.estado) : "Sem chave — só neste celular"}</dd>
-    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}${(() => { const c = [...OS.values()].filter(r => r._st === "cancelada").length; return c ? ` (${n - c} ativas + ${c} cancelada${c > 1 ? "s" : ""})` : ""; })()}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
+    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no servidor</dt><dd>${[...OS.values()].filter(r => r._st !== "cancelada").length}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token && !ehWeb() ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
+  ${privado() ? `<div class="card"><h2>👀 Quem acessou</h2><div class="small muted" style="margin-top:-4px">Última entrada de cada perfil (registrada a partir de 03/11/2026).</div>${PERFIS.map(p => { const a = ACESSOS[p.id]; return `<div class="achado" style="cursor:default"><span style="flex:1"><b>${esc(nomePerfil(p.id))}</b><br><span class="small muted">${a ? `${brHora(a.em)} · ${esc(a.onde)}` : "ainda não entrou"}</span></span>${a ? '<span class="tag executada" style="flex:none">✔</span>' : '<span class="tag" style="flex:none">—</span>'}</div>`; }).join("")}</div>` : ""}
   ${privado() ? `<div class="card"><h2>⚠️ Duplicidade</h2><div class="small muted">Se você conferiu e as OS estão certas, zere os alertas de agora. As OS novas continuam sendo verificadas.</div><button class="btn w" style="margin-top:10px" id="ajzerodup">✔ Zerar alertas de duplicidade</button></div>` : ""}
   <div class="card"><h2>🔊 Som das teclas</h2><div class="small muted">Clique baixinho ao tocar nos botões e um toque quando salva.</div><button class="btn w" style="margin-top:10px" id="ajsom">${SOM ? "🔊 Ligado — tocar para desligar" : "🔇 Desligado — tocar para ligar"}</button></div>
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
@@ -15745,6 +15768,7 @@ async function limparDuplicada3502780() {
 }
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
+  setTimeout(registrarAcesso, 5000);
   if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
