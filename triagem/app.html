@@ -13280,7 +13280,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 34;                       // versão da interface (sobe a cada publicação)
+const APP_V = 35;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13641,8 +13641,57 @@ function syncUI() {
     init: ["", "Conectando…"],
   }[SYNC.rodando ? "init" : (n && SYNC.estado === "ok" ? "pend" : SYNC.estado)] || ["", ""];
   el.innerHTML = `<span class="dot ${m[0]}"></span><span>${esc(m[1])}</span>`;
+  bannerSinal();
 }
-window.addEventListener("online", () => sincronizar());
+/* ---------- sem internet: fila visível e, quando o sinal volta, envia e completa sozinho ---------- */
+const naFila = id => SYNC.fila.some(x => x.t === "os" && x.id === id);
+const esperandoSinal = r => r && r._st !== "cancelada" && (naFila(r.id) || !!r.tri?.semSinal);
+function contaFila() {
+  const os = new Set(SYNC.fila.filter(x => x.t === "os").map(x => x.id)), fotos = SYNC.fila.filter(x => x.t === "foto").length;
+  const comp = [...OS.values()].filter(r => r._st !== "cancelada" && r.tri?.semSinal).length;
+  return { os: os.size, fotos, comp };
+}
+function bannerSinal() {
+  const m = $("#main"); if (!m || !EU || EU.id === "tela" || document.body.classList.contains("relmode")) return;
+  let b = $("#sinalbar"); const c = contaFila(), off = !navigator.onLine || SYNC.estado === "off";
+  let html = "";
+  if (off && (c.os || c.fotos || c.comp)) html = `<b>📶 Sem internet</b> · ${c.os} OS${c.fotos ? ` e ${c.fotos} foto(s)` : ""} esperando sinal${c.comp ? ` · ${c.comp} para completar endereço/mapa` : ""}<div class="small" style="opacity:.9">Tudo está salvo no celular. Quando o sinal voltar, envio e completo sozinho.</div>`;
+  else if (off) html = `<b>📶 Sem internet</b> · pode triar normal: fica salvo no celular e sobe quando o sinal voltar.`;
+  else if (SYNC.fila.length || COMPLETANDO) html = `<b>☁️ ${COMPLETANDO ? "Completando endereço/mapa…" : "Enviando…"}</b> ${c.os ? c.os + " OS" : ""}${c.fotos ? ` · ${c.fotos} foto(s)` : ""}${c.comp ? ` · ${c.comp} para completar` : ""}`;
+  else if (c.comp) html = `<b>📍 ${c.comp} OS sem endereço/mapa completo</b> · vou completar na próxima conexão.`;
+  if (!html) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "sinalbar"; b.style.cssText = "border-radius:12px;padding:9px 12px;margin:0 0 10px;font-size:13.5px;cursor:pointer;line-height:1.35"; b.onclick = () => ir("lista", { st: "sinal" }); }
+  b.style.background = off ? "#b71c1c" : "#1565c0"; b.style.color = "#fff";
+  b.innerHTML = html; if (m.firstChild !== b) m.prepend(b);
+}
+let COMPLETANDO = false;
+async function completarSemSinal() {
+  if (COMPLETANDO || !navigator.onLine) return 0;
+  const l = [...OS.values()].filter(r => r._st !== "cancelada" && r.tri?.semSinal); if (!l.length) return 0;
+  COMPLETANDO = true; bannerSinal(); let ok = 0;
+  try {
+    for (const r of l) {
+      const T = r.tri; let mudou = false;
+      if (T.lat == null && (T.end?.rua || T.end?.bairro)) { const g = await coordDaOS(T.end); if (g) { T.lat = g.lat; T.lng = g.lng; T.origemCoord = "endereco"; T.geoAprox = !!g.aprox; T.geoPeloEnd = 1; mudou = true; } }
+      if (!T.end?.rua && T.lat != null && T.origemCoord !== "endereco") { const e = await enderecoDe(T.lat, T.lng); await new Promise(x => setTimeout(x, 1100)); if (e && e.rua) { T.end = Object.assign({}, T.end, { rua: e.rua, num: T.end?.num || e.num || "", bairro: T.end?.bairro || e.bairro || "", mun: T.end?.mun || e.mun || "", aConfirmar: false }); mudou = true; } }
+      if (T.end?.rua && T.lat != null) { delete T.semSinal; mudou = true; }
+      if (mudou) { T.upd = Date.now(); await salvarOS(r, "editada", "completada quando o sinal voltou"); if (!T.semSinal) ok++; }
+    }
+  } finally { COMPLETANDO = false; bannerSinal(); }
+  return ok;
+}
+async function sinalVoltou() {
+  if (!navigator.onLine) return;
+  const antes = contaFila();
+  await sincronizar(true);
+  const comp = await completarSemSinal();
+  if (comp) await sincronizar();
+  const depois = contaFila(), env = Math.max(0, antes.os - depois.os);
+  if (env || comp) aviso(`✅ Sinal voltou: ${env ? env + " OS enviada(s)" : ""}${env && comp ? " e " : ""}${comp ? comp + " endereço(s)/mapa(s) completado(s)" : ""}`, 6000);
+  render();
+}
+window.addEventListener("online", () => { bannerSinal(); setTimeout(sinalVoltou, 1500); });
+window.addEventListener("offline", () => { SYNC.estado = "off"; syncUI(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { sincronizar(); checarAtualizacao(); } });
 setInterval(() => { if (!document.hidden) sincronizar(); }, 40000);
 
@@ -14146,6 +14195,7 @@ function render() {
   nav(); $("#av").textContent = iniciais(EU?.nome);
   const m = $("#main");
   ({ painel: telaPainel, lista: telaLista, rota: telaRota, rel: telaRel, agentes: telaAgentes, ajustes: telaAjustes }[VIEW] || telaPainel)(m);
+  bannerSinal();
 }
 function aviso(t, ms = 3200) { if (/^\s*✅/.test(t)) somOk(); else if (/^\s*(⚠|❌)/.test(t)) somErro(); $$(".toast").forEach(x => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.innerHTML = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); }
 function folha(html, cls = "") {
@@ -14161,6 +14211,7 @@ function lista(f = {}) {
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
   const hoje = isoDia();
   if (f.st === "maiores") return [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && r._c.area > 0 && (!f.tipo || f.tipo === "todos" || tipoDe(r.tri) === f.tipo)).sort((a, b) => b._c.area - a._c.area);
+  if (f.st === "sinal") l = [...OS.values()].filter(esperandoSinal);
   if (f.st === "dup") l = [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length);
   if (f.tipo && f.tipo !== "todos") l = l.filter(r => tipoDe(r.tri) === f.tipo);
   if (f.per === "hoje") l = l.filter(r => r.tri.dia === hoje || r.exec?.data === hoje || r.prog?.data === hoje);
@@ -14177,7 +14228,7 @@ function cartao(r, sel) {
     ${sel ? `<input type="checkbox" data-sel="${r.id}" ${SEL?.has(r.id) ? "checked" : ""} onclick="event.stopPropagation()">` : ""}
     <img class="th" data-th="${r.tri.fotos?.[0]?.p || ""}" alt="">
     <div class="b">
-      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${tagAreaBoa(r)}${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
+      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${tagAreaBoa(r)}${esperandoSinal(r) ? `<span class="tag" style="background:#ffe0b2;color:#8a4b00">📶 ${r.tri.semSinal ? "completar" : "esperando sinal"}</span>` : ""}${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
       <div class="end">${esc(endTxt(r.tri.end, 1))}</div>
       <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || r.tri.end?.mun || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono" style="${areaBoa(r) ? "color:#d32f2f" : ""}">${nf(r._c.massa)} t</b>` : ""}</div>
       <div class="meta">${r._st === "programada" ? `🚚 Eq. ${esc(r.prog.equipe)} · ${brDia(r.prog.data)}` : r._st === "executada" ? `✅ ${brDia(r.exec.data)} por ${esc(nomePerfil(r.exec.por))}` : `Triada ${brDia(r.tri.dia)} · ${esc(nomePerfil(r.criado.por).split(" ")[0])}`}</div>
@@ -14250,7 +14301,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   const base = lista(Object.assign({}, FILTRO, { setor: "todos" })); const cont = {}; base.forEach(r => { const k = setorDe(r.tri); cont[k] = (cont[k] || 0) + 1; });
   const setores = Object.keys(cont).sort(ordemSetor); if (FILTRO.setor && FILTRO.setor !== "todos" && !cont[FILTRO.setor]) setores.unshift(FILTRO.setor);
@@ -14709,6 +14760,8 @@ function abrirForm(r, op = {}) {
     }
     { const d = emDasFotos(); if (d) T.emFoto = d.em; }
     if (T.emFoto && isoDia(new Date(T.emFoto)) !== T.dia) T.emFoto = new Date(T.dia + "T" + new Date(T.emFoto).toTimeString().slice(0, 5)).getTime();   // dia editado à mão vale
+    if (!navigator.onLine) T.semSinal = Date.now();            // completar endereço/mapa quando o sinal voltar
+    else if (T.semSinal && T.end.rua && T.lat != null) delete T.semSinal;
     T.upd = Date.now(); T.por = EU.id;
     rec.tri = T; rec.os = os;
     await salvarOS(rec, novo ? "triada" : "editada");
@@ -15653,6 +15706,7 @@ async function autoMapas() {
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos"))) return;
   setTimeout(preencherBairros, 15000);
+  setTimeout(() => { if (navigator.onLine) completarSemSinal().then(n => { if (n) { aviso(`✅ ${n} OS completada(s) com endereço/mapa`, 5000); render(); } }); }, 9000);
   if (!(await kvGet("mapasCorrigidos1"))) setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
   /* 01/11/2026: endereços conferidos pelo carimbo no servidor → baixa e refaz os mapas pelo endereço certo */
   else if (temServidor() && !(await kvGet("mapasCorrigidos3"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; const x = await corrigirMapas(false); if (x && x.ok === x.total) await kvSet("mapasCorrigidos3", 1); }, 4000);
