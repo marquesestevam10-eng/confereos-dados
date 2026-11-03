@@ -776,6 +776,9 @@ textarea.in{min-height:70px;resize:vertical}
 .toa-it{display:flex;gap:12px;align-items:flex-start;padding:12px 2px;border-top:1px solid var(--soft);font-size:13.5px;line-height:1.35}
 .toa-l{width:32px;height:32px;border-radius:4px;color:#06343b;display:flex;align-items:center;justify-content:center;font:700 14px var(--mono);flex:none}
 .toa-txt{flex:1;cursor:pointer}.toa-txt .sv{text-transform:uppercase}
+.tag.sirene{background:#d32f2f;color:#fff;animation:pisca 1s ease-in-out infinite}
+.os.boa{border-left-color:#d32f2f!important;background:linear-gradient(90deg,#fdecea,var(--surface) 55%)}
+@keyframes pisca{0%,100%{opacity:1}50%{opacity:.45}}
 .pinlbl{background:#fff;border-radius:6px;padding:1px 5px;font:700 11px var(--mono);box-shadow:0 1px 4px rgba(0,0,0,.3);white-space:nowrap}
 .legend{display:flex;gap:12px;font-size:12.5px;margin:8px 2px;flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
@@ -864,6 +867,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <header class="top" id="top">
   <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1f2a1d"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm-1.2 10.2-3-3 1.4-1.4 1.6 1.6 3.9-3.9 1.4 1.4Z"/></svg></div>
   <div class="sp"><h1>Triagem OS</h1><div class="sub" id="sync"><span class="dot"></span><span>Iniciando…</span></div></div>
+  <button class="avatar" id="somtop" title="Ligar/desligar o som das teclas" style="margin-right:6px;font-size:17px">🔊</button>
   <div class="avatar" id="av" title="Perfil e ajustes">?</div>
 </header>
 <main id="main"></main>
@@ -13276,7 +13280,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 33;                       // versão da interface (sobe a cada publicação)
+const APP_V = 34;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13471,6 +13475,11 @@ const somTecla = () => { if (SOM) try { tom(1650, 0.035, 0.05, "triangle"); tom(
 const somOk = () => { if (SOM) try { tom(880, 0.12, 0.06); tom(1320, 0.18, 0.05, "sine", 0.09); } catch (e) { } };
 const somErro = () => { if (SOM) try { tom(330, 0.16, 0.06, "square"); tom(250, 0.2, 0.05, "square", 0.12); } catch (e) { } };
 document.addEventListener("pointerdown", e => { if (e.target.closest("button, .btn, .chip, .seg button, nav.bot button, [data-ir], [data-os], [data-pf], [data-setor-ir], input[type=checkbox], select, a.navb, a.maplink, .navb")) somTecla(); }, { passive: true });
+
+/* ---------- área boa para fazer: OS de asfalto pendente com 0,90 t ou mais (pedido do Estevam) ---------- */
+const ALERTA_T = 0.9;
+const areaBoa = r => r && (r._st === "triada" || r._st === "programada") && (r._c?.massa || 0) >= ALERTA_T - 1e-9;
+const tagAreaBoa = r => areaBoa(r) ? `<span class="tag sirene">🚨 ${nf(r._c.massa)} t · área boa</span>` : "";
 
 /* ================= Sincronização com o GitHub (repositório privado triagemos-dados) =================
    os/<id>.json  → um arquivo por OS (seções com carimbo de atualização, mescla sem perder dados)
@@ -14131,6 +14140,7 @@ window.__back = () => {
 };
 
 function render() {
+  if (typeof somTopUI === "function") somTopUI();
   if (!EU) { if (ehTela()) { if (!$(".telaqr")) telaConectar(); } else if (!$("[data-pf]")) telaPerfil(true); return; }
   if (EU.id === "tela") { $("#av").textContent = "TV"; return telaGrande($("#main")); }
   nav(); $("#av").textContent = iniciais(EU?.nome);
@@ -14163,13 +14173,13 @@ function lista(f = {}) {
 /* ---------- cartão de OS ---------- */
 function cartao(r, sel) {
   const a = privado() ? agentesDaOS(r).filter(x => x.n >= 2) : [];
-  return `<div class="os ${r._st}" data-os="${r.id}">
+  return `<div class="os ${r._st}${areaBoa(r) ? " boa" : ""}" data-os="${r.id}">
     ${sel ? `<input type="checkbox" data-sel="${r.id}" ${SEL?.has(r.id) ? "checked" : ""} onclick="event.stopPropagation()">` : ""}
     <img class="th" data-th="${r.tri.fotos?.[0]?.p || ""}" alt="">
     <div class="b">
-      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
+      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${tagAreaBoa(r)}${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
       <div class="end">${esc(endTxt(r.tri.end, 1))}</div>
-      <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || r.tri.end?.mun || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono">${nf(r._c.massa)} t</b>` : ""}</div>
+      <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || r.tri.end?.mun || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono" style="${areaBoa(r) ? "color:#d32f2f" : ""}">${nf(r._c.massa)} t</b>` : ""}</div>
       <div class="meta">${r._st === "programada" ? `🚚 Eq. ${esc(r.prog.equipe)} · ${brDia(r.prog.data)}` : r._st === "executada" ? `✅ ${brDia(r.exec.data)} por ${esc(nomePerfil(r.exec.por))}` : `Triada ${brDia(r.tri.dia)} · ${esc(nomePerfil(r.criado.por).split(" ")[0])}`}</div>
       <div class="meta" style="color:${vidaCor(r)};font-weight:600">⏳ ${esc(vidaTxt(r))} · desde ${brHora(r.tri.emFoto || r.criado.em)}</div>
       ${a.length ? `<div class="al">⚠ ${esc(a[0].t)}${a.length > 1 ? ` (+${a.length - 1})` : ""}</div>` : ""}
@@ -14211,7 +14221,7 @@ function telaPainel(m) {
     ${pode("triar") ? `<div class="small muted" style="margin-top:12px;font-weight:700">NOVA TRIAGEM</div><div class="row" style="margin-top:6px">${Object.entries(TIPOS).map(([k, v]) => `<button class="btn ${k === "asfalto" ? "y" : ""}" data-novatri="${k}">${v.ic} ${v.n}</button>`).join("")}</div><button class="btn w" style="margin-top:8px" data-act="voz-rapida">🎤 Triagem por áudio</button>` : ""}
   </div>
   ${(() => { const dd = all.filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length); const fe = dd.filter(r => duplicatas(r).some(d => d.r._st === "executada")); return dd.length ? `<div class="card" data-ir="lista" data-st="dup" style="cursor:pointer;border-left:5px solid var(--bad)"><h2>⚠️ Possível duplicidade <span class="r">${dd.length} OS ›</span></h2><div class="small">${fe.length ? `<b style="color:var(--bad)">${fe.length} OS em local que já foi executado.</b> ` : ""}Mesmo endereço/número ou mesmo ponto de outra OS. Confira antes de programar, pra não dar viagem perdida.</div></div>` : ""; })()}
-  ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<div class="row" style="margin-top:8px"><button class="btn sm y" style="flex:none" data-act="sobra">♻️ Aproveitar massa</button><span class="small muted" style="align-self:center">sobrou CBUQ? ache áreas perto</span></div></div>` : ""; })()}
+  ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${(() => { const nb = [...OS.values()].filter(areaBoa).length; return nb ? `<div class="small" style="background:#d32f2f;color:#fff;border-radius:8px;padding:6px 10px;margin:-2px 0 6px;font-weight:700;animation:pisca 1.4s ease-in-out infinite;cursor:pointer" data-ir="lista" data-st="maiores">🚨 ${nb} OS com ${nf(ALERTA_T)} t ou mais — área boa para fazer</div>` : ""; })()}${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> ${areaBoa(r) ? "🚨" : "·"} <b class="mono" style="${areaBoa(r) ? "color:#d32f2f" : ""}">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<div class="row" style="margin-top:8px"><button class="btn sm y" style="flex:none" data-act="sobra">♻️ Aproveitar massa</button><span class="small muted" style="align-self:center">sobrou CBUQ? ache áreas perto</span></div></div>` : ""; })()}
   <div class="card"><h2>🧱 Por pavimentação <span class="r">falta fazer · total</span></h2>
     ${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), tt = totais(l); return `<div class="achado" data-ir="lista" data-tp="${k}" style="align-items:center"><span style="font-size:22px">${v.ic}</span><span style="flex:1"><b>${v.n}</b><br><span class="small muted mono">falta ${p.n} OS · ${nf(p.area)} m²${k === "asfalto" ? ` · ${nf(p.massa)} t` : ""}</span></span><span class="mono small" style="text-align:right">${tt.n} OS<br>${nf(tt.area)} m²</span></div>`; }).join("")}
   </div>
@@ -14275,6 +14285,7 @@ async function abrirOS(id) {
   const meu = r.criado.por === EU.id;
   const s = folha(`
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
+    ${areaBoa(r) ? `<div class="small" style="background:#d32f2f;color:#fff;border-radius:8px;padding:6px 10px;margin:4px 0;font-weight:700;animation:pisca 1.2s ease-in-out infinite">🚨 ${nf(c.massa)} t — área boa para fazer</div>` : ""}
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
     <div class="muted small">${T.end?.bairro || !T.end?.rua ? esc(T.end?.bairro || "bairro a confirmar") + " · " : ""}${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
     <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
@@ -15562,7 +15573,7 @@ function telaAjustes(m) {
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
   $("#ajtroca").onclick = () => telaPerfil(false);
-  $("#ajsom").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } if (SOM) somOk(); render(); };
+  $("#ajsom").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } if (SOM) somOk(); somTopUI(); render(); };
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
   const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
   const zd = $("#ajzerodup"); if (zd) zd.onclick = () => { if (confirm("Zerar todos os alertas de duplicidade de agora?")) zerarDuplicidades(true); };
@@ -15571,6 +15582,8 @@ function telaAjustes(m) {
   $("#ajexp").onclick = () => baixar(`TriagemOS_backup_${brDia(isoDia()).replace(/\//g, "-")}.json`, new Blob([JSON.stringify({ app: "TriagemOS", gerado: new Date().toISOString(), por: EU.nome, os: [...OS.values()].map(limpo) }, null, 1)], { type: "application/json" }), "application/json");
   const tk = $("#ajtok"); if (tk) tk.onclick = async () => { const v = prompt("Cole a chave do servidor (github_pat_…):"); if (v) { TOKEN = v.trim(); await kvSet("tokenManual", TOKEN); SYNC.etag = null; sincronizar(true); } };
 }
+function somTopUI() { const b = $("#somtop"); if (b) { b.textContent = SOM ? "🔊" : "🔇"; b.style.display = EU && EU.id !== "tela" ? "" : "none"; } }
+$("#somtop").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } somTopUI(); if (SOM) somOk(); aviso(SOM ? "🔊 Som das teclas ligado" : "🔇 Som das teclas desligado", 1800); if (VIEW === "ajustes") render(); };
 $("#av").onclick = () => { if (EU && EU.id !== "tela") ir("ajustes"); };
 
 /* ---------- atualização automática da interface ---------- */
