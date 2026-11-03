@@ -1,8 +1,8 @@
 {
- "v": 2,
- "data": "01/11/2026",
- "dados": "d-6b93759cc75f.bin",
- "nota": "Triagens do Triagem OS: 17 OS",
+ "v": 3,
+ "data": "03/11/2026",
+ "dados": "d-df80b09037dc.bin",
+ "nota": "23 triagens de novembro (Triagem OS) · pastas por mês",
  "fotos": {
   "28": "f-28-447a0f9812.bin",
   "29": "f-29-58b1a04953.bin"
@@ -11,7 +11,7 @@
   "29": "m-29-b88eae081f.bin"
  },
  "app": {
-  "v": 23,
-  "f": "a-23-003670557f.bin"
+  "v": 24,
+  "f": "a-24-5d27027e8d.bin"
  }
 }
