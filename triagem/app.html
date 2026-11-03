@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 39;                       // versão da interface (sobe a cada publicação)
+const APP_V = 40;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -15660,7 +15660,7 @@ function telaAjustes(m) {
   ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Área privada · conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>` : ""}
   <div class="card"><h2>☁️ Servidor</h2>
     <div class="kv small"><dt>Situação</dt><dd>${temServidor() ? ({ ok: "Conectado", pend: "Enviando", off: "Sem internet", erro: "Erro", init: "Conectando", local: "—" }[SYNC.estado] || SYNC.estado) : "Sem chave — só neste celular"}</dd>
-    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
+    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}${(() => { const c = [...OS.values()].filter(r => r._st === "cancelada").length; return c ? ` (${n - c} ativas + ${c} cancelada${c > 1 ? "s" : ""})` : ""; })()}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token && !ehWeb() ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
