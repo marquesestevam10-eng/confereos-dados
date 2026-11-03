@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 42;                       // versão da interface (sobe a cada publicação)
+const APP_V = 45;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13507,7 +13507,11 @@ const syncSalvar = () => kvSet("sync", { sha: SYNC.sha, etag: SYNC.etag, fila: S
 
 async function gh(path, opt = {}) {
   const h = Object.assign({ Authorization: "Bearer " + TOKEN, "X-GitHub-Api-Version": "2022-11-28", Accept: "application/vnd.github+json" }, opt.headers || {});
-  return fetch("https://api.github.com/repos/" + REPO + path, Object.assign({}, opt, { headers: h, cache: "no-store" }));
+  // tempo máximo por pedido: se a internet travar no meio de um envio, desiste e tenta de novo na próxima volta (antes a fila podia ficar parada)
+  const ac = new AbortController(), ms = opt.method === "PUT" ? 90000 : 30000, tm = setTimeout(() => ac.abort(), ms);
+  return fetch("https://api.github.com/repos/" + REPO + path, Object.assign({}, opt, { headers: h, cache: "no-store", signal: ac.signal }))
+    .catch(e => { throw new Error(e && e.name === "AbortError" ? "internet lenta: tempo esgotado" : (e && e.message) || "sem conexão"); })
+    .finally(() => clearTimeout(tm));
 }
 const b64utf8 = s => { const b = new TextEncoder().encode(s); let x = ""; for (let i = 0; i < b.length; i += 0x8000) x += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(x); };
 const utf8b64 = c => new TextDecoder().decode(Uint8Array.from(atob(c.replace(/\s/g, "")), ch => ch.charCodeAt(0)));
@@ -13521,14 +13525,14 @@ function enfileirar(item) {
 
 async function sincronizar(forcar) {
   if (!temServidor()) { SYNC.estado = "local"; syncUI(); return; }
-  if (SYNC.rodando) return; SYNC.rodando = true;
+  if (SYNC.rodando && Date.now() - (SYNC.desde || 0) < 180000) return; SYNC.rodando = true; SYNC.desde = Date.now();
   try {
     if (!navigator.onLine) throw new Error("offline");
     await enviarFila();
     await puxar(forcar);
     SYNC.estado = SYNC.fila.length ? "pend" : "ok"; SYNC.erro = ""; SYNC.ultimo = Date.now();
   } catch (e) {
-    SYNC.estado = (e.message === "offline" || e instanceof TypeError) ? "off" : "erro"; SYNC.erro = e.message || String(e);
+    SYNC.estado = (e.message === "offline" || e instanceof TypeError || /sem conexão|internet lenta/.test(e.message || "")) ? "off" : "erro"; SYNC.erro = e.message || String(e);
   } finally { SYNC.rodando = false; syncSalvar(); syncUI(); }
 }
 
@@ -13563,6 +13567,14 @@ async function puxar(forcar) {
     }
   }
   SYNC.etag = et;
+  /* auto-cura: OS deste aparelho que não chegaram no servidor (envio interrompido) voltam para a fila, com as fotos que faltam */
+  { const noServ = new Set((j.tree || []).map(it => it.path)); let cura = 0;
+    for (const r of OS.values()) {
+      if (noServ.has("os/" + r.id + ".json") || SYNC.sha["os/" + r.id + ".json"] || naFila(r.id)) continue;
+      for (const f of [...(r.tri?.fotos || []), ...(r.exec?.fotos || [])]) if (f && f.p && !noServ.has(f.p) && !SYNC.sha[f.p] && !SYNC.fila.some(x => x.p === f.p) && await fotoGet(f.p)) enfileirar({ t: "foto", p: f.p });
+      enfileirar({ t: "os", id: r.id }); cura++;
+    }
+    if (cura) aviso(`☁️ Reenviando ${cura} OS que não tinham chegado no servidor`, 6000); }
   if (mudou) { render(); aviso("🔄 Atualizado com o servidor"); }
 }
 function localMaisNovo(loc, rem) { return SECOES.some(k => (loc[k]?.upd || 0) > (rem[k]?.upd || 0)) || (loc.hist || []).length > (rem.hist || []).length; }
@@ -13571,6 +13583,7 @@ function NOMES_LOCAL() { return EU && EU.nomeProprio ? { [EU.id]: EU.nome } : {}
 /* 1ª vez com servidor: sobe tudo que foi feito no modo local (OS, fotos e relatórios gravados) */
 async function subirLocal() {
   if (!temServidor() || await kvGet("subiuLocal1")) return;
+  for (let i = 0; i < 120 && SYNC.rodando; i++) await new Promise(ok => setTimeout(ok, 500));   // espera a sincronização em andamento
   if (!SYNC.ultimo) { await sincronizar(true); if (!SYNC.ultimo) return; }      // primeiro baixa o que já está no servidor
   let n = 0;
   for (const r of OS.values()) {
@@ -13597,10 +13610,14 @@ async function enviarFila() {
 }
 async function enviarFoto(p) {
   const blob = await fotoGet(p); if (!blob) return;
-  const r = await gh("/contents/" + p, { method: "PUT", body: JSON.stringify({ message: "Foto " + p, content: await blobB64(blob) }) });
-  if (r.status === 422) return;                                   // já existe
-  if (!r.ok) throw new Error("envio de foto " + r.status);
-  SYNC.sha[p] = (await r.json()).content.sha;
+  const corpo = JSON.stringify({ message: "Foto " + p, content: await blobB64(blob) });
+  for (let t = 0; t < 4; t++) {
+    const r = await gh("/contents/" + p, { method: "PUT", body: corpo });
+    if (r.status === 422) return;                                   // já existe
+    if (r.ok) { SYNC.sha[p] = (await r.json()).content.sha; return; }
+    if (r.status === 409 && t < 3) { await new Promise(ok => setTimeout(ok, 800 + Math.random() * 1500)); continue; }   // servidor ocupado com outro envio: espera e tenta de novo
+    throw new Error("envio de foto " + r.status);
+  }
 }
 async function enviarArquivo(path, texto, msg) {
   for (let t = 0; t < 3; t++) {
@@ -13628,6 +13645,7 @@ async function enviarOS(id) {
     if (r.status === 401 || r.status === 403) throw new Error("chave do servidor recusada (" + r.status + ")");
     throw new Error("envio da OS " + r.status);
   }
+  throw new Error("envio da OS: servidor ocupado, tento de novo");   // não tira da fila: tenta na próxima volta
 }
 /* foto: local → senão baixa do servidor */
 const _urlCache = new Map();
@@ -13712,6 +13730,7 @@ setInterval(() => { if (!document.hidden) sincronizar(); }, 40000);
 let ACESSOS = {};
 async function registrarAcesso() {
   if (!EU || EU.id === "tela" || !temServidor() || !navigator.onLine) return;
+  for (let i = 0; i < 120 && (SYNC.rodando || SYNC.fila.length); i++) await new Promise(ok => setTimeout(ok, 1000));   // não disputa o servidor com a fila
   const ult = await kvGet("acessoEnviado"); if (ult && ult.id === EU.id && Date.now() - ult.em < 36e5) return;
   const onde = ANDROID ? "app Android" : (/iPhone|iPad/i.test(navigator.userAgent) ? "iPhone (navegador)" : /Android/i.test(navigator.userAgent) ? "celular (navegador)" : "computador (navegador)");
   const a = { perfil: EU.id, nome: EU.nome, em: Date.now(), onde, versao: APP_V };
@@ -14205,7 +14224,7 @@ function ir(v, arg) {
 const historico = [];
 window.__back = () => {
   if (document.body.classList.contains("relmode")) { fecharRel(); return "closed"; }
-  const s = $$(".sheet-bg"); if (s.length) { s[s.length - 1].remove(); return "closed"; }
+  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa") || confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) u.remove(); return "closed"; }
   if ($(".lightbox")) { $(".lightbox").remove(); return "closed"; }
   if (VIEW !== "painel") { ir("painel"); return "closed"; }
   return "none";
@@ -14224,7 +14243,8 @@ function aviso(t, ms = 3200) { if (/^\s*✅/.test(t)) somOk(); else if (/^\s*(�
 function folha(html, cls = "") {
   const bg = document.createElement("div"); bg.className = "sheet-bg";
   bg.innerHTML = `<div class="sheet ${cls}"><div class="grab"></div>${html}</div>`;
-  bg.addEventListener("click", e => { if (e.target === bg) bg.remove(); });
+  if (/\bfixa\b/.test(cls)) bg.classList.add("fixa");   // triagem: só sai salvando (ou ✖ com confirmação)
+  else bg.addEventListener("click", e => { if (e.target === bg) bg.remove(); });
   document.body.appendChild(bg); return bg.querySelector(".sheet");
 }
 const fecharFolha = el => el.closest(".sheet-bg")?.remove();
@@ -14512,6 +14532,7 @@ function abrirForm(r, op = {}) {
   const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: op.tipo ? TIPOS[op.tipo].padrao : "613287", servicoConfirmado: !!(op.tipo && op.tipo !== "asfalto"), entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
   const FN = [];          // fotos novas (ainda não carimbadas)
   const s = folha(`
+    <button class="btn sm" id="fsair" style="float:right;width:auto;flex:none;margin:0 0 4px 8px">✖ Sair</button>
     <h3>${novo ? `📷 Nova triagem${op.tipo ? " de " + TIPOS[op.tipo].n.toLowerCase() : ""}` : "✏️ Editar OS " + esc(r.os)}</h3>
     <div class="card" style="padding:10px 12px;margin:4px 0 8px">
       <div class="row" style="align-items:center"><b style="flex:2">📋 Colar texto da OS</b><button class="btn sm" id="fcolar" style="flex:none">Colar</button></div>
@@ -14561,7 +14582,7 @@ function abrirForm(r, op = {}) {
     </div>
     <label class="f">Dia da triagem</label><input class="in" type="date" id="fdia" value="${T.dia}">
     <div class="small muted" id="fdianota" style="margin-top:4px">${T.emFoto ? "📅 Pela data da foto: " + brHora(T.emFoto) : "Vale a data da foto: ao pôr as fotos, o dia se ajusta sozinho."}</div>
-    <button class="btn y w" style="margin-top:16px;font-size:16px;padding:14px" id="fsalvar">💾 Salvar triagem</button>`);
+    <button class="btn y w" style="margin-top:16px;font-size:16px;padding:14px" id="fsalvar">💾 Salvar triagem</button>`, "fixa");
 
   const set = (id, v) => { const el = $("#" + id, s); if (el && v != null && v !== "") el.value = v; };
   // ---- trechos e cálculo em tempo real
@@ -14755,6 +14776,7 @@ function abrirForm(r, op = {}) {
   };
 
   // ---- salvar
+  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) fecharFolha(s); };
   $("#fsalvar", s).onclick = async () => {
     const os = $("#fos", s).value.trim().toUpperCase().replace(/\s/g, "");
     if (!os) return aviso("Informe o número da OS");
@@ -15788,7 +15810,7 @@ async function autoMapas() {
     syncUI();
     render();
     try { if (ANDROID && window.Android.uiOk) window.Android.uiOk(); } catch (e) { }
-    sincronizar(); checarAtualizacao();
+    sincronizar(true); checarAtualizacao();
     autoMapas();
   } catch (e) { document.body.innerHTML = `<div style="padding:20px;font:15px sans-serif">Erro ao abrir o Triagem OS: ${esc(e.message || e)}</div>`; }
 })();

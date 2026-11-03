@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 44;                       // versão da interface (sobe a cada publicação)
+const APP_V = 45;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14224,7 +14224,7 @@ function ir(v, arg) {
 const historico = [];
 window.__back = () => {
   if (document.body.classList.contains("relmode")) { fecharRel(); return "closed"; }
-  const s = $$(".sheet-bg"); if (s.length) { s[s.length - 1].remove(); return "closed"; }
+  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa") || confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) u.remove(); return "closed"; }
   if ($(".lightbox")) { $(".lightbox").remove(); return "closed"; }
   if (VIEW !== "painel") { ir("painel"); return "closed"; }
   return "none";
@@ -14243,7 +14243,8 @@ function aviso(t, ms = 3200) { if (/^\s*✅/.test(t)) somOk(); else if (/^\s*(�
 function folha(html, cls = "") {
   const bg = document.createElement("div"); bg.className = "sheet-bg";
   bg.innerHTML = `<div class="sheet ${cls}"><div class="grab"></div>${html}</div>`;
-  bg.addEventListener("click", e => { if (e.target === bg) bg.remove(); });
+  if (/\bfixa\b/.test(cls)) bg.classList.add("fixa");   // triagem: só sai salvando (ou ✖ com confirmação)
+  else bg.addEventListener("click", e => { if (e.target === bg) bg.remove(); });
   document.body.appendChild(bg); return bg.querySelector(".sheet");
 }
 const fecharFolha = el => el.closest(".sheet-bg")?.remove();
@@ -14531,6 +14532,7 @@ function abrirForm(r, op = {}) {
   const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: op.tipo ? TIPOS[op.tipo].padrao : "613287", servicoConfirmado: !!(op.tipo && op.tipo !== "asfalto"), entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
   const FN = [];          // fotos novas (ainda não carimbadas)
   const s = folha(`
+    <button class="btn sm" id="fsair" style="float:right;width:auto;flex:none;margin:0 0 4px 8px">✖ Sair</button>
     <h3>${novo ? `📷 Nova triagem${op.tipo ? " de " + TIPOS[op.tipo].n.toLowerCase() : ""}` : "✏️ Editar OS " + esc(r.os)}</h3>
     <div class="card" style="padding:10px 12px;margin:4px 0 8px">
       <div class="row" style="align-items:center"><b style="flex:2">📋 Colar texto da OS</b><button class="btn sm" id="fcolar" style="flex:none">Colar</button></div>
@@ -14580,7 +14582,7 @@ function abrirForm(r, op = {}) {
     </div>
     <label class="f">Dia da triagem</label><input class="in" type="date" id="fdia" value="${T.dia}">
     <div class="small muted" id="fdianota" style="margin-top:4px">${T.emFoto ? "📅 Pela data da foto: " + brHora(T.emFoto) : "Vale a data da foto: ao pôr as fotos, o dia se ajusta sozinho."}</div>
-    <button class="btn y w" style="margin-top:16px;font-size:16px;padding:14px" id="fsalvar">💾 Salvar triagem</button>`);
+    <button class="btn y w" style="margin-top:16px;font-size:16px;padding:14px" id="fsalvar">💾 Salvar triagem</button>`, "fixa");
 
   const set = (id, v) => { const el = $("#" + id, s); if (el && v != null && v !== "") el.value = v; };
   // ---- trechos e cálculo em tempo real
@@ -14774,6 +14776,7 @@ function abrirForm(r, op = {}) {
   };
 
   // ---- salvar
+  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) fecharFolha(s); };
   $("#fsalvar", s).onclick = async () => {
     const os = $("#fos", s).value.trim().toUpperCase().replace(/\s/g, "");
     if (!os) return aviso("Informe o número da OS");
