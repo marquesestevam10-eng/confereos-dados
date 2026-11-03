@@ -1,8 +1,8 @@
 {
- "v": 4,
+ "v": 5,
  "data": "03/11/2026",
- "dados": "d-abf7501688f7.bin",
- "nota": "Fotos das triagens de 02/11 e 03/11 (Triagem OS) · paralelo inclui 613274/613266",
+ "dados": "d-91c2f4f16f1a.bin",
+ "nota": "Calçada e paralelo só em m² (sem t)",
  "fotos": {
   "28": "f-28-447a0f9812.bin",
   "29": "f-29-58b1a04953.bin",
@@ -13,7 +13,7 @@
   "29": "m-29-b88eae081f.bin"
  },
  "app": {
-  "v": 25,
-  "f": "a-25-e3b128794c.bin"
+  "v": 26,
+  "f": "a-26-ae749847c5.bin"
  }
 }
