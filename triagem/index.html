@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 43;                       // versão da interface (sobe a cada publicação)
+const APP_V = 44;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13567,6 +13567,14 @@ async function puxar(forcar) {
     }
   }
   SYNC.etag = et;
+  /* auto-cura: OS deste aparelho que não chegaram no servidor (envio interrompido) voltam para a fila, com as fotos que faltam */
+  { const noServ = new Set((j.tree || []).map(it => it.path)); let cura = 0;
+    for (const r of OS.values()) {
+      if (noServ.has("os/" + r.id + ".json") || SYNC.sha["os/" + r.id + ".json"] || naFila(r.id)) continue;
+      for (const f of [...(r.tri?.fotos || []), ...(r.exec?.fotos || [])]) if (f && f.p && !noServ.has(f.p) && !SYNC.sha[f.p] && !SYNC.fila.some(x => x.p === f.p) && await fotoGet(f.p)) enfileirar({ t: "foto", p: f.p });
+      enfileirar({ t: "os", id: r.id }); cura++;
+    }
+    if (cura) aviso(`☁️ Reenviando ${cura} OS que não tinham chegado no servidor`, 6000); }
   if (mudou) { render(); aviso("🔄 Atualizado com o servidor"); }
 }
 function localMaisNovo(loc, rem) { return SECOES.some(k => (loc[k]?.upd || 0) > (rem[k]?.upd || 0)) || (loc.hist || []).length > (rem.hist || []).length; }
@@ -13602,10 +13610,14 @@ async function enviarFila() {
 }
 async function enviarFoto(p) {
   const blob = await fotoGet(p); if (!blob) return;
-  const r = await gh("/contents/" + p, { method: "PUT", body: JSON.stringify({ message: "Foto " + p, content: await blobB64(blob) }) });
-  if (r.status === 422) return;                                   // já existe
-  if (!r.ok) throw new Error("envio de foto " + r.status);
-  SYNC.sha[p] = (await r.json()).content.sha;
+  const corpo = JSON.stringify({ message: "Foto " + p, content: await blobB64(blob) });
+  for (let t = 0; t < 4; t++) {
+    const r = await gh("/contents/" + p, { method: "PUT", body: corpo });
+    if (r.status === 422) return;                                   // já existe
+    if (r.ok) { SYNC.sha[p] = (await r.json()).content.sha; return; }
+    if (r.status === 409 && t < 3) { await new Promise(ok => setTimeout(ok, 800 + Math.random() * 1500)); continue; }   // servidor ocupado com outro envio: espera e tenta de novo
+    throw new Error("envio de foto " + r.status);
+  }
 }
 async function enviarArquivo(path, texto, msg) {
   for (let t = 0; t < 3; t++) {
@@ -13633,6 +13645,7 @@ async function enviarOS(id) {
     if (r.status === 401 || r.status === 403) throw new Error("chave do servidor recusada (" + r.status + ")");
     throw new Error("envio da OS " + r.status);
   }
+  throw new Error("envio da OS: servidor ocupado, tento de novo");   // não tira da fila: tenta na próxima volta
 }
 /* foto: local → senão baixa do servidor */
 const _urlCache = new Map();
@@ -13717,6 +13730,7 @@ setInterval(() => { if (!document.hidden) sincronizar(); }, 40000);
 let ACESSOS = {};
 async function registrarAcesso() {
   if (!EU || EU.id === "tela" || !temServidor() || !navigator.onLine) return;
+  for (let i = 0; i < 120 && (SYNC.rodando || SYNC.fila.length); i++) await new Promise(ok => setTimeout(ok, 1000));   // não disputa o servidor com a fila
   const ult = await kvGet("acessoEnviado"); if (ult && ult.id === EU.id && Date.now() - ult.em < 36e5) return;
   const onde = ANDROID ? "app Android" : (/iPhone|iPad/i.test(navigator.userAgent) ? "iPhone (navegador)" : /Android/i.test(navigator.userAgent) ? "celular (navegador)" : "computador (navegador)");
   const a = { perfil: EU.id, nome: EU.nome, em: Date.now(), onde, versao: APP_V };
@@ -15793,7 +15807,7 @@ async function autoMapas() {
     syncUI();
     render();
     try { if (ANDROID && window.Android.uiOk) window.Android.uiOk(); } catch (e) { }
-    sincronizar(); checarAtualizacao();
+    sincronizar(true); checarAtualizacao();
     autoMapas();
   } catch (e) { document.body.innerHTML = `<div style="padding:20px;font:15px sans-serif">Erro ao abrir o Triagem OS: ${esc(e.message || e)}</div>`; }
 })();
