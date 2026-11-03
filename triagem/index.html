@@ -13283,7 +13283,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 40;                       // versão da interface (sobe a cada publicação)
+const APP_V = 41;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14216,6 +14216,7 @@ function lista(f = {}) {
   let l = [...OS.values()];
   if (f.st === "ativas") l = l.filter(r => r._st === "triada" || r._st === "programada");
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
+  if (f.st !== "cancelada") l = l.filter(r => r._st !== "cancelada");   // cancelada não aparece (fica guardada no servidor)
   const hoje = isoDia();
   if (f.st === "maiores") return [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && r._c.area > 0 && (!f.tipo || f.tipo === "todos" || tipoDe(r.tri) === f.tipo)).sort((a, b) => b._c.area - a._c.area);
   if (f.st === "sinal") l = [...OS.values()].filter(esperandoSinal);
@@ -14308,7 +14309,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   const base = lista(Object.assign({}, FILTRO, { setor: "todos" })); const cont = {}; base.forEach(r => { const k = setorDe(r.tri); cont[k] = (cont[k] || 0) + 1; });
   const setores = Object.keys(cont).sort(ordemSetor); if (FILTRO.setor && FILTRO.setor !== "todos" && !cont[FILTRO.setor]) setores.unshift(FILTRO.setor);
@@ -15660,7 +15661,7 @@ function telaAjustes(m) {
   ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Área privada · conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>` : ""}
   <div class="card"><h2>☁️ Servidor</h2>
     <div class="kv small"><dt>Situação</dt><dd>${temServidor() ? ({ ok: "Conectado", pend: "Enviando", off: "Sem internet", erro: "Erro", init: "Conectando", local: "—" }[SYNC.estado] || SYNC.estado) : "Sem chave — só neste celular"}</dd>
-    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}${(() => { const c = [...OS.values()].filter(r => r._st === "cancelada").length; return c ? ` (${n - c} ativas + ${c} cancelada${c > 1 ? "s" : ""})` : ""; })()}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
+    <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no servidor</dt><dd>${[...OS.values()].filter(r => r._st !== "cancelada").length}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
     <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token && !ehWeb() ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
