@@ -776,6 +776,9 @@ textarea.in{min-height:70px;resize:vertical}
 .toa-it{display:flex;gap:12px;align-items:flex-start;padding:12px 2px;border-top:1px solid var(--soft);font-size:13.5px;line-height:1.35}
 .toa-l{width:32px;height:32px;border-radius:4px;color:#06343b;display:flex;align-items:center;justify-content:center;font:700 14px var(--mono);flex:none}
 .toa-txt{flex:1;cursor:pointer}.toa-txt .sv{text-transform:uppercase}
+.tag.sirene{background:#d32f2f;color:#fff;animation:pisca 1s ease-in-out infinite}
+.os.boa{border-left-color:#d32f2f!important;background:linear-gradient(90deg,#fdecea,var(--surface) 55%)}
+@keyframes pisca{0%,100%{opacity:1}50%{opacity:.45}}
 .pinlbl{background:#fff;border-radius:6px;padding:1px 5px;font:700 11px var(--mono);box-shadow:0 1px 4px rgba(0,0,0,.3);white-space:nowrap}
 .legend{display:flex;gap:12px;font-size:12.5px;margin:8px 2px;flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
@@ -864,6 +867,7 @@ body.relmode #rel{display:block;padding:12px 12px 90px;background:#fff;min-heigh
 <header class="top" id="top">
   <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1f2a1d"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm-1.2 10.2-3-3 1.4-1.4 1.6 1.6 3.9-3.9 1.4 1.4Z"/></svg></div>
   <div class="sp"><h1>Triagem OS</h1><div class="sub" id="sync"><span class="dot"></span><span>Iniciando…</span></div></div>
+  <button class="avatar" id="somtop" title="Ligar/desligar o som das teclas" style="margin-right:6px;font-size:17px">🔊</button>
   <div class="avatar" id="av" title="Perfil e ajustes">?</div>
 </header>
 <main id="main"></main>
@@ -13274,9 +13278,12 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 /******/ ])["default"];
 });</script>
 <script>
+/* gerado por web/logins.py — chave do servidor trancada com a senha de cada perfil (sem senha não abre) */
+const LOGINS = {"estevam": {"s": "dmDp6GB/Sm+mrOGrnvH4mA==", "i": "N7tqknnlwND4ute1", "n": 310000, "c": "NWAXll3TMJDI3RBM1L6WJSZV3NNgx74rVsQOVjfFmpMGhYo8hSjEQOsw/F/FkFnxW71enLvIn3EafeU5gqgR5WCu28KsRhJBch2EafSHLspMIO8mO9XAA9N4Ty6B6OG0NQ/cUdBq99QbL4VxTw=="}, "jonnatas": {"s": "VrJyrCqjsp5r9NQ1kZMl4Q==", "i": "LYtCCurTc+obqTMd", "n": 310000, "c": "6Y9z1H18LUj93fyQXwThB0ej1j32VoxFA/0wCpz/Sh9fWDAUb3RLRwJp0lzZFdKwtKehDI6CUqihEkkdcpqEuLGz7l3FsFVI+nb72pz+x+/S9bxt+Ydq4xi5fOasfchOe7t2qqkpKOxDIOmMfA=="}, "gerente": {"s": "4pQDBj1tPJKm4kcPIzvnGA==", "i": "FMHWHg2Omer8xhkB", "n": 310000, "c": "0+T3s3Yh0ts+yrt3bHjXKx5kHgXcS9m4zZ60pXCkImS6a/Z3NLNRdEQobIjIi2jLDciOLHrcTRnC12d2Yhte9qcsN7C7X56MTnzR/CjtQrHMrFKHQLmZ63ViGTjV5s3gIamXuUSGmze41e02lg=="}, "programador": {"s": "a/KVxtzOtl42MhwCJsehSA==", "i": "M4qdZI32A9QzXBjw", "n": 310000, "c": "RXvLy5oTURmfZTyNOtgqOwliuEN0L9bULIsD9uvCeXxn0Zo5YK1+Sb5Q47Lt/bLpi9BmV8sNm4YY6MvwiUOdOm0VZyHYTSmOQOk8JRAfOJEk5wQiYShCKT6OhCoh3ooQV+9E/DZ4X6qFRMFzPQ=="}};
+
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 33;                       // versão da interface (sobe a cada publicação)
+const APP_V = 36;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13472,6 +13479,11 @@ const somOk = () => { if (SOM) try { tom(880, 0.12, 0.06); tom(1320, 0.18, 0.05,
 const somErro = () => { if (SOM) try { tom(330, 0.16, 0.06, "square"); tom(250, 0.2, 0.05, "square", 0.12); } catch (e) { } };
 document.addEventListener("pointerdown", e => { if (e.target.closest("button, .btn, .chip, .seg button, nav.bot button, [data-ir], [data-os], [data-pf], [data-setor-ir], input[type=checkbox], select, a.navb, a.maplink, .navb")) somTecla(); }, { passive: true });
 
+/* ---------- área boa para fazer: OS de asfalto pendente com 0,90 t ou mais (pedido do Estevam) ---------- */
+const ALERTA_T = 0.9;
+const areaBoa = r => r && (r._st === "triada" || r._st === "programada") && (r._c?.massa || 0) >= ALERTA_T - 1e-9;
+const tagAreaBoa = r => areaBoa(r) ? `<span class="tag sirene">🚨 ${nf(r._c.massa)} t · área boa</span>` : "";
+
 /* ================= Sincronização com o GitHub (repositório privado triagemos-dados) =================
    os/<id>.json  → um arquivo por OS (seções com carimbo de atualização, mescla sem perder dados)
    fotos/<id>/<n>.jpg → fotos carimbadas
@@ -13621,6 +13633,7 @@ async function fotoURL(p) {
 }
 function syncUI() {
   const el = $("#sync"); if (!el) return;
+  if (!EU && typeof ehWeb === "function" && ehWeb()) { el.innerHTML = '<span class="dot pend"></span><span>Entre com a sua senha</span>'; return; }
   if (!EU && !TOKEN && typeof ehTela === "function" && ehTela()) { el.innerHTML = '<span class="dot pend"></span><span>Tela grande · aguardando conexão</span>'; return; }
   const n = SYNC.fila.length;
   const m = {
@@ -13632,8 +13645,57 @@ function syncUI() {
     init: ["", "Conectando…"],
   }[SYNC.rodando ? "init" : (n && SYNC.estado === "ok" ? "pend" : SYNC.estado)] || ["", ""];
   el.innerHTML = `<span class="dot ${m[0]}"></span><span>${esc(m[1])}</span>`;
+  bannerSinal();
 }
-window.addEventListener("online", () => sincronizar());
+/* ---------- sem internet: fila visível e, quando o sinal volta, envia e completa sozinho ---------- */
+const naFila = id => SYNC.fila.some(x => x.t === "os" && x.id === id);
+const esperandoSinal = r => r && r._st !== "cancelada" && (naFila(r.id) || !!r.tri?.semSinal);
+function contaFila() {
+  const os = new Set(SYNC.fila.filter(x => x.t === "os").map(x => x.id)), fotos = SYNC.fila.filter(x => x.t === "foto").length;
+  const comp = [...OS.values()].filter(r => r._st !== "cancelada" && r.tri?.semSinal).length;
+  return { os: os.size, fotos, comp };
+}
+function bannerSinal() {
+  const m = $("#main"); if (!m || !EU || EU.id === "tela" || document.body.classList.contains("relmode")) return;
+  let b = $("#sinalbar"); const c = contaFila(), off = !navigator.onLine || SYNC.estado === "off";
+  let html = "";
+  if (off && (c.os || c.fotos || c.comp)) html = `<b>📶 Sem internet</b> · ${c.os} OS${c.fotos ? ` e ${c.fotos} foto(s)` : ""} esperando sinal${c.comp ? ` · ${c.comp} para completar endereço/mapa` : ""}<div class="small" style="opacity:.9">Tudo está salvo no celular. Quando o sinal voltar, envio e completo sozinho.</div>`;
+  else if (off) html = `<b>📶 Sem internet</b> · pode triar normal: fica salvo no celular e sobe quando o sinal voltar.`;
+  else if (SYNC.fila.length || COMPLETANDO) html = `<b>☁️ ${COMPLETANDO ? "Completando endereço/mapa…" : "Enviando…"}</b> ${c.os ? c.os + " OS" : ""}${c.fotos ? ` · ${c.fotos} foto(s)` : ""}${c.comp ? ` · ${c.comp} para completar` : ""}`;
+  else if (c.comp) html = `<b>📍 ${c.comp} OS sem endereço/mapa completo</b> · vou completar na próxima conexão.`;
+  if (!html) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "sinalbar"; b.style.cssText = "border-radius:12px;padding:9px 12px;margin:0 0 10px;font-size:13.5px;cursor:pointer;line-height:1.35"; b.onclick = () => ir("lista", { st: "sinal" }); }
+  b.style.background = off ? "#b71c1c" : "#1565c0"; b.style.color = "#fff";
+  b.innerHTML = html; if (m.firstChild !== b) m.prepend(b);
+}
+let COMPLETANDO = false;
+async function completarSemSinal() {
+  if (COMPLETANDO || !navigator.onLine) return 0;
+  const l = [...OS.values()].filter(r => r._st !== "cancelada" && r.tri?.semSinal); if (!l.length) return 0;
+  COMPLETANDO = true; bannerSinal(); let ok = 0;
+  try {
+    for (const r of l) {
+      const T = r.tri; let mudou = false;
+      if (T.lat == null && (T.end?.rua || T.end?.bairro)) { const g = await coordDaOS(T.end); if (g) { T.lat = g.lat; T.lng = g.lng; T.origemCoord = "endereco"; T.geoAprox = !!g.aprox; T.geoPeloEnd = 1; mudou = true; } }
+      if (!T.end?.rua && T.lat != null && T.origemCoord !== "endereco") { const e = await enderecoDe(T.lat, T.lng); await new Promise(x => setTimeout(x, 1100)); if (e && e.rua) { T.end = Object.assign({}, T.end, { rua: e.rua, num: T.end?.num || e.num || "", bairro: T.end?.bairro || e.bairro || "", mun: T.end?.mun || e.mun || "", aConfirmar: false }); mudou = true; } }
+      if (T.end?.rua && T.lat != null) { delete T.semSinal; mudou = true; }
+      if (mudou) { T.upd = Date.now(); await salvarOS(r, "editada", "completada quando o sinal voltou"); if (!T.semSinal) ok++; }
+    }
+  } finally { COMPLETANDO = false; bannerSinal(); }
+  return ok;
+}
+async function sinalVoltou() {
+  if (!navigator.onLine) return;
+  const antes = contaFila();
+  await sincronizar(true);
+  const comp = await completarSemSinal();
+  if (comp) await sincronizar();
+  const depois = contaFila(), env = Math.max(0, antes.os - depois.os);
+  if (env || comp) aviso(`✅ Sinal voltou: ${env ? env + " OS enviada(s)" : ""}${env && comp ? " e " : ""}${comp ? comp + " endereço(s)/mapa(s) completado(s)" : ""}`, 6000);
+  render();
+}
+window.addEventListener("online", () => { bannerSinal(); setTimeout(sinalVoltou, 1500); });
+window.addEventListener("offline", () => { SYNC.estado = "off"; syncUI(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { sincronizar(); checarAtualizacao(); } });
 setInterval(() => { if (!document.hidden) sincronizar(); }, 40000);
 
@@ -14131,11 +14193,13 @@ window.__back = () => {
 };
 
 function render() {
-  if (!EU) { if (ehTela()) { if (!$(".telaqr")) telaConectar(); } else if (!$("[data-pf]")) telaPerfil(true); return; }
+  if (typeof somTopUI === "function") somTopUI();
+  if (!EU) { if (ehTela()) { if (!$(".telaqr")) telaConectar(); } else if (ehWeb()) { if (!$("#wlogin")) telaLoginWeb(); } else if (!$("[data-pf]")) telaPerfil(true); return; }
   if (EU.id === "tela") { $("#av").textContent = "TV"; return telaGrande($("#main")); }
   nav(); $("#av").textContent = iniciais(EU?.nome);
   const m = $("#main");
   ({ painel: telaPainel, lista: telaLista, rota: telaRota, rel: telaRel, agentes: telaAgentes, ajustes: telaAjustes }[VIEW] || telaPainel)(m);
+  bannerSinal();
 }
 function aviso(t, ms = 3200) { if (/^\s*✅/.test(t)) somOk(); else if (/^\s*(⚠|❌)/.test(t)) somErro(); $$(".toast").forEach(x => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.innerHTML = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); }
 function folha(html, cls = "") {
@@ -14151,6 +14215,7 @@ function lista(f = {}) {
   else if (f.st && f.st !== "todas") l = l.filter(r => r._st === f.st);
   const hoje = isoDia();
   if (f.st === "maiores") return [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && r._c.area > 0 && (!f.tipo || f.tipo === "todos" || tipoDe(r.tri) === f.tipo)).sort((a, b) => b._c.area - a._c.area);
+  if (f.st === "sinal") l = [...OS.values()].filter(esperandoSinal);
   if (f.st === "dup") l = [...OS.values()].filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length);
   if (f.tipo && f.tipo !== "todos") l = l.filter(r => tipoDe(r.tri) === f.tipo);
   if (f.per === "hoje") l = l.filter(r => r.tri.dia === hoje || r.exec?.data === hoje || r.prog?.data === hoje);
@@ -14163,13 +14228,13 @@ function lista(f = {}) {
 /* ---------- cartão de OS ---------- */
 function cartao(r, sel) {
   const a = privado() ? agentesDaOS(r).filter(x => x.n >= 2) : [];
-  return `<div class="os ${r._st}" data-os="${r.id}">
+  return `<div class="os ${r._st}${areaBoa(r) ? " boa" : ""}" data-os="${r.id}">
     ${sel ? `<input type="checkbox" data-sel="${r.id}" ${SEL?.has(r.id) ? "checked" : ""} onclick="event.stopPropagation()">` : ""}
     <img class="th" data-th="${r.tri.fotos?.[0]?.p || ""}" alt="">
     <div class="b">
-      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
+      <div class="t1"><span class="num">OS ${esc(r.os)}</span><span class="tag ${r._st}">${ST_NOME[r._st]}</span>${tagAreaBoa(r)}${esperandoSinal(r) ? `<span class="tag" style="background:#ffe0b2;color:#8a4b00">📶 ${r.tri.semSinal ? "completar" : "esperando sinal"}</span>` : ""}${ativa(r.conf) ? '<span class="tag conf">Conferida</span>' : ""}${r._st !== "executada" && r._st !== "cancelada" && duplicatas(r).length ? `<span class="tag dupt">${duplicatas(r).some(d => d.r._st === "executada") ? "⚠ Já feita?" : "⚠ Duplicidade"}</span>` : ""}</div>
       <div class="end">${esc(endTxt(r.tri.end, 1))}</div>
-      <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || r.tri.end?.mun || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono">${nf(r._c.massa)} t</b>` : ""}</div>
+      <div class="meta"><span class="tp">${TIPOS[tipoDe(r.tri)].ic} ${TIPOS[tipoDe(r.tri)].n}</span> ${esc(r.tri.end?.bairro || r.tri.end?.mun || "bairro ?")} · <b class="mono">${nf(r._c.area)} m²</b>${r._c.massa ? ` · <b class="mono" style="${areaBoa(r) ? "color:#d32f2f" : ""}">${nf(r._c.massa)} t</b>` : ""}</div>
       <div class="meta">${r._st === "programada" ? `🚚 Eq. ${esc(r.prog.equipe)} · ${brDia(r.prog.data)}` : r._st === "executada" ? `✅ ${brDia(r.exec.data)} por ${esc(nomePerfil(r.exec.por))}` : `Triada ${brDia(r.tri.dia)} · ${esc(nomePerfil(r.criado.por).split(" ")[0])}`}</div>
       <div class="meta" style="color:${vidaCor(r)};font-weight:600">⏳ ${esc(vidaTxt(r))} · desde ${brHora(r.tri.emFoto || r.criado.em)}</div>
       ${a.length ? `<div class="al">⚠ ${esc(a[0].t)}${a.length > 1 ? ` (+${a.length - 1})` : ""}</div>` : ""}
@@ -14211,7 +14276,7 @@ function telaPainel(m) {
     ${pode("triar") ? `<div class="small muted" style="margin-top:12px;font-weight:700">NOVA TRIAGEM</div><div class="row" style="margin-top:6px">${Object.entries(TIPOS).map(([k, v]) => `<button class="btn ${k === "asfalto" ? "y" : ""}" data-novatri="${k}">${v.ic} ${v.n}</button>`).join("")}</div><button class="btn w" style="margin-top:8px" data-act="voz-rapida">🎤 Triagem por áudio</button>` : ""}
   </div>
   ${(() => { const dd = all.filter(r => (r._st === "triada" || r._st === "programada") && duplicatas(r).length); const fe = dd.filter(r => duplicatas(r).some(d => d.r._st === "executada")); return dd.length ? `<div class="card" data-ir="lista" data-st="dup" style="cursor:pointer;border-left:5px solid var(--bad)"><h2>⚠️ Possível duplicidade <span class="r">${dd.length} OS ›</span></h2><div class="small">${fe.length ? `<b style="color:var(--bad)">${fe.length} OS em local que já foi executado.</b> ` : ""}Mesmo endereço/número ou mesmo ponto de outra OS. Confira antes de programar, pra não dar viagem perdida.</div></div>` : ""; })()}
-  ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> · <b class="mono">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<div class="row" style="margin-top:8px"><button class="btn sm y" style="flex:none" data-act="sobra">♻️ Aproveitar massa</button><span class="small muted" style="align-self:center">sobrou CBUQ? ache áreas perto</span></div></div>` : ""; })()}
+  ${(() => { const g = pendAsfalto().sort((a, b) => b._c.massa - a._c.massa).slice(0, 3); return g.length ? `<div class="card"><h2>📏 Áreas maiores pendentes <span class="r">asfalto</span></h2>${(() => { const nb = [...OS.values()].filter(areaBoa).length; return nb ? `<div class="small" style="background:#d32f2f;color:#fff;border-radius:8px;padding:6px 10px;margin:-2px 0 6px;font-weight:700;animation:pisca 1.4s ease-in-out infinite;cursor:pointer" data-ir="lista" data-st="maiores">🚨 ${nb} OS com ${nf(ALERTA_T)} t ou mais — área boa para fazer</div>` : ""; })()}${g.map(r => `<div class="achado" data-os="${r.id}"><span style="flex:1"><b>OS ${esc(r.os)}</b> ${areaBoa(r) ? "🚨" : "·"} <b class="mono" style="${areaBoa(r) ? "color:#d32f2f" : ""}">${nf(r._c.massa)} t</b> · ${nf(r._c.area)} m²<br><span class="small muted">${esc(r.tri.end?.bairro || "")}${r.tri.end?.mun ? " · " + esc(r.tri.end.mun) : ""}</span></span></div>`).join("")}<div class="row" style="margin-top:8px"><button class="btn sm y" style="flex:none" data-act="sobra">♻️ Aproveitar massa</button><span class="small muted" style="align-self:center">sobrou CBUQ? ache áreas perto</span></div></div>` : ""; })()}
   <div class="card"><h2>🧱 Por pavimentação <span class="r">falta fazer · total</span></h2>
     ${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), tt = totais(l); return `<div class="achado" data-ir="lista" data-tp="${k}" style="align-items:center"><span style="font-size:22px">${v.ic}</span><span style="flex:1"><b>${v.n}</b><br><span class="small muted mono">falta ${p.n} OS · ${nf(p.area)} m²${k === "asfalto" ? ` · ${nf(p.massa)} t` : ""}</span></span><span class="mono small" style="text-align:right">${tt.n} OS<br>${nf(tt.area)} m²</span></div>`; }).join("")}
   </div>
@@ -14240,7 +14305,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"
 
 /* ---------- Lista / banco de dados ---------- */
 function telaLista(m) {
-  const sts = [["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
+  const sts = [...(contaFila().os || contaFila().comp ? [["sinal", "📶 Esperando sinal"]] : []), ["ativas", "Falta fazer"], ["triada", "Triadas"], ["programada", "Programadas"], ["executada", "Executadas"], ["dup", "⚠ Duplicidade"], ["maiores", "📏 Áreas maiores"], ["cancelada", "Canceladas"], ["todas", "Todas"]];
   const l = lista(FILTRO); const t = totais(l);
   const base = lista(Object.assign({}, FILTRO, { setor: "todos" })); const cont = {}; base.forEach(r => { const k = setorDe(r.tri); cont[k] = (cont[k] || 0) + 1; });
   const setores = Object.keys(cont).sort(ordemSetor); if (FILTRO.setor && FILTRO.setor !== "todos" && !cont[FILTRO.setor]) setores.unshift(FILTRO.setor);
@@ -14275,6 +14340,7 @@ async function abrirOS(id) {
   const meu = r.criado.por === EU.id;
   const s = folha(`
     <div class="row" style="align-items:center"><h3 style="flex:2">OS <span class="mono">${esc(r.os)}</span></h3><span class="tag ${r._st}" style="flex:none">${ST_NOME[r._st]}</span></div>
+    ${areaBoa(r) ? `<div class="small" style="background:#d32f2f;color:#fff;border-radius:8px;padding:6px 10px;margin:4px 0;font-weight:700;animation:pisca 1.2s ease-in-out infinite">🚨 ${nf(c.massa)} t — área boa para fazer</div>` : ""}
     <div style="font-weight:600">${esc(endTxt(T.end, 1))}</div>
     <div class="muted small">${T.end?.bairro || !T.end?.rua ? esc(T.end?.bairro || "bairro a confirmar") + " · " : ""}${esc(T.end?.mun || "município a confirmar")}${T.end?.aConfirmar ? " · <b style='color:var(--bad)'>endereço a confirmar</b>" : ""}</div>
     <div class="calc">${SERV[T.servico].cbuq ? `<div><b>${nf(c.area)}</b><span>m²</span></div><div><b>${nf(c.volume, 3)}</b><span>m³</span></div><div><b>${nf(c.massa)}</b><span>t CBUQ</span></div>` : `<div style="grid-column:1/4"><b>${nf(c.area)}</b><span>m² de ${TIPOS[tipoDe(T)].n.toLowerCase()}</span></div>`}</div>
@@ -14698,6 +14764,8 @@ function abrirForm(r, op = {}) {
     }
     { const d = emDasFotos(); if (d) T.emFoto = d.em; }
     if (T.emFoto && isoDia(new Date(T.emFoto)) !== T.dia) T.emFoto = new Date(T.dia + "T" + new Date(T.emFoto).toTimeString().slice(0, 5)).getTime();   // dia editado à mão vale
+    if (!navigator.onLine) T.semSinal = Date.now();            // completar endereço/mapa quando o sinal voltar
+    else if (T.semSinal && T.end.rua && T.lat != null) delete T.semSinal;
     T.upd = Date.now(); T.por = EU.id;
     rec.tri = T; rec.os = os;
     await salvarOS(rec, novo ? "triada" : "editada");
@@ -15415,7 +15483,8 @@ async function chaveAES(priv, pubRaw) {
   const pub = await crypto.subtle.importKey("raw", pubRaw, { name: "ECDH", namedCurve: "P-256" }, false, []);
   return crypto.subtle.deriveKey({ name: "ECDH", public: pub }, priv, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
-const ehTela = () => !ANDROID;
+const ehTela = () => !ANDROID && /tela\.html$/i.test(location.pathname);
+const ehWeb = () => !ANDROID && !ehTela();
 
 /* ---------- computador: mostra o QR e espera o celular ---------- */
 let _es = null;
@@ -15515,6 +15584,42 @@ function telaGrande(m) {
 }
 setInterval(() => { if (EU?.id === "tela" && document.body.classList.contains("tela")) $("#sync") && syncUI(); }, 15000);
 
+/* ================= Triagem OS na internet (navegador, iPhone, notebook): entra com a senha de cada perfil =================
+   LOGINS (0b-logins.js) guarda a chave do servidor trancada com a senha de cada um (PBKDF2 + AES-GCM). Senha certa = abre a chave e entra no perfil. */
+const b64u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function abrirChave(pf, senha) {
+  const L = (typeof LOGINS !== "undefined") && LOGINS[pf]; if (!L || !senha) return null;
+  try {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64u8(L.s), iterations: L.n, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u8(L.i) }, key, b64u8(L.c)));
+  } catch (e) { return null; }
+}
+function telaLoginWeb() {
+  const m = $("#main"); $("#nav").innerHTML = ""; let pf = null;
+  const lista = PERFIS.filter(p => (typeof LOGINS !== "undefined") && LOGINS[p.id]);
+  m.innerHTML = `<div id="wlogin"></div><div class="hero"><div style="font-size:13px;opacity:.8">TRIAGEM OS · PAVIMENTAÇÃO · REGIONAL METROPOLITANA</div><h2>Entrar no Triagem OS</h2><div style="font-size:13.5px;opacity:.85">Escolha o seu perfil e digite a sua senha. Funciona no iPhone, no notebook e em qualquer navegador, em tempo real.</div></div>
+    ${lista.map(p => `<div class="perfil" data-wpf="${p.id}"><div class="avatar">${iniciais(nomePerfil(p.id))}</div><div style="flex:1"><b>${esc(nomePerfil(p.id))}</b><div class="pd">${esc(p.papel)}</div></div></div>`).join("")}
+    <label class="f">🔒 Senha</label><input class="in" id="wsenha" type="password" autocomplete="current-password" placeholder="Senha do seu perfil">
+    <div class="small" id="werr" style="min-height:18px;margin-top:4px"></div>
+    <button class="btn y w" id="wok" style="margin-top:6px" disabled>Entrar</button>
+    <div class="small muted" style="margin-top:14px;text-align:center"><a href="tela.html">📺 Usar como tela grande (QR Code)</a></div>${CREDITO}`;
+  $$("[data-wpf]", m).forEach(c => c.onclick = () => { pf = c.dataset.wpf; $$("[data-wpf]", m).forEach(x => x.classList.toggle("on", x === c)); $("#wok").disabled = false; $("#wsenha").focus(); });
+  const entrar = async () => {
+    if (!pf) return; const b = $("#wok"); b.disabled = true; b.textContent = "Conferindo…"; $("#werr").textContent = "";
+    const tok = await abrirChave(pf, $("#wsenha").value.trim());
+    if (!tok) { b.disabled = false; b.textContent = "Entrar"; $("#werr").innerHTML = '<span style="color:#b3261e">Senha errada para esse perfil.</span>'; if (typeof somErro === "function") somErro(); return; }
+    TOKEN = tok; await kvSet("tokenManual", tok); await kvSet("webPerfil", pf);
+    const p = PERFIS.find(x => x.id === pf); EU = Object.assign({}, p, { nome: NOMES[p.id] || p.nome }); await kvSet("perfil", { id: EU.id, nome: EU.nome });
+    SYNC.etag = null; VIEW = "painel"; render(); aviso(`✅ Bem-vindo, ${esc(EU.nome.split(" ")[0])}`); await sincronizar(true); render(); autoMapas();
+  };
+  $("#wok").onclick = entrar; $("#wsenha").onkeydown = e => { if (e.key === "Enter") entrar(); };
+}
+async function sairWeb() {
+  if (!confirm("Sair deste aparelho? Para entrar de novo, vai precisar da senha.")) return;
+  await kvSet("tokenManual", ""); await kvSet("webPerfil", null); await kvSet("perfil", null); location.reload();
+}
+
 /* ================= Perfil, ajustes, atualização e início ================= */
 function telaPerfil(primeira) {
   const m = $("#main"); $("#nav").innerHTML = "";
@@ -15548,12 +15653,12 @@ async function pinOk(v) {
 }
 function telaAjustes(m) {
   const n = OS.size;
-  m.innerHTML = `<div class="perfil on"><div class="avatar">${iniciais(EU.nome)}</div><div style="flex:1"><b>${esc(EU.nome)}</b><div class="pd">${esc(EU.papel)}</div></div><button class="btn sm" id="ajtroca">Trocar</button></div>
+  m.innerHTML = `<div class="perfil on"><div class="avatar">${iniciais(EU.nome)}</div><div style="flex:1"><b>${esc(EU.nome)}</b><div class="pd">${esc(EU.papel)}</div></div><button class="btn sm" id="ajtroca">${ehWeb() ? "Sair" : "Trocar"}</button></div>
   ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">›</span></h2><div class="small muted">Área privada · conferência automática de endereço, fotos, cargas, serviço, prazo e conferência.</div></div>` : ""}
   <div class="card"><h2>☁️ Servidor</h2>
     <div class="kv small"><dt>Situação</dt><dd>${temServidor() ? ({ ok: "Conectado", pend: "Enviando", off: "Sem internet", erro: "Erro", init: "Conectando", local: "—" }[SYNC.estado] || SYNC.estado) : "Sem chave — só neste celular"}</dd>
     <dt>Última sincronização</dt><dd>${SYNC.ultimo ? brHora(SYNC.ultimo) : "—"}</dd><dt>Envios pendentes</dt><dd>${SYNC.fila.length}</dd><dt>OS no aparelho</dt><dd>${n}</dd>${SYNC.erro ? `<dt>Último erro</dt><dd>${esc(SYNC.erro)}</dd>` : ""}</div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="ajsync">🔄 Sincronizar agora</button>${!CFG.token && !ehWeb() ? `<button class="btn" id="ajtok">🔑 Chave</button>` : ""}</div></div>
   ${privado() || pode("conferir") ? `<div class="card"><h2>📺 Tela grande</h2><div class="small muted">Acompanhe tudo no computador ou na TV, igual WhatsApp Web: abra o link no computador e leia o QR Code com o celular.</div><button class="btn y w" style="margin-top:10px" id="ajtela">📺 Conectar tela grande</button></div>` : ""}
   ${pode("triar") || pode("editarTodos") ? `<div class="card"><h2>🗺️ Mapas das OS</h2><div class="small muted">Põe o mapa de cada OS no endereço dela quando o ponto veio do GPS do celular na hora do cadastro (ou não tinha ponto).</div><button class="btn w" style="margin-top:10px" id="ajmapas">🗺️ Ajustar mapas pelo endereço</button></div>` : ""}
   ${privado() ? `<div class="card"><h2>⚠️ Duplicidade</h2><div class="small muted">Se você conferiu e as OS estão certas, zere os alertas de agora. As OS novas continuam sendo verificadas.</div><button class="btn w" style="margin-top:10px" id="ajzerodup">✔ Zerar alertas de duplicidade</button></div>` : ""}
@@ -15561,8 +15666,8 @@ function telaAjustes(m) {
   <div class="card"><h2>📦 Dados</h2><div class="row"><button class="btn" id="ajexp">⬇️ Backup (JSON)</button></div><div class="small muted" style="margin-top:6px">O backup também serve para o Claude ler as triagens e montar o RDS no computador.</div></div>
   <div class="card"><h2>ℹ️ Sobre</h2><div class="kv small"><dt>Versão</dt><dd>Triagem OS · interface ${APP_V}${ANDROID ? " · app " + (window.Android.apkVersion ? window.Android.apkVersion() : "") : ""}</dd><dt>Cálculo</dt><dd>espessura 3 cm · 2,4 t/m³ · 0,072 t/m² · caminhão ${CARGA} t</dd><dt>Desenvolvido por</dt><dd>Estevam Marques</dd></div>
     <button class="btn w" style="margin-top:10px" id="ajupd">⬆️ Procurar atualização</button></div>${CREDITO}`;
-  $("#ajtroca").onclick = () => telaPerfil(false);
-  $("#ajsom").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } if (SOM) somOk(); render(); };
+  $("#ajtroca").onclick = () => ehWeb() ? sairWeb() : telaPerfil(false);
+  $("#ajsom").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } if (SOM) somOk(); somTopUI(); render(); };
   const tl = $("#ajtela"); if (tl) tl.onclick = lerQRTela;
   const am = $("#ajmapas"); if (am) am.onclick = () => corrigirMapas(true);
   const zd = $("#ajzerodup"); if (zd) zd.onclick = () => { if (confirm("Zerar todos os alertas de duplicidade de agora?")) zerarDuplicidades(true); };
@@ -15571,6 +15676,8 @@ function telaAjustes(m) {
   $("#ajexp").onclick = () => baixar(`TriagemOS_backup_${brDia(isoDia()).replace(/\//g, "-")}.json`, new Blob([JSON.stringify({ app: "TriagemOS", gerado: new Date().toISOString(), por: EU.nome, os: [...OS.values()].map(limpo) }, null, 1)], { type: "application/json" }), "application/json");
   const tk = $("#ajtok"); if (tk) tk.onclick = async () => { const v = prompt("Cole a chave do servidor (github_pat_…):"); if (v) { TOKEN = v.trim(); await kvSet("tokenManual", TOKEN); SYNC.etag = null; sincronizar(true); } };
 }
+function somTopUI() { const b = $("#somtop"); if (b) { b.textContent = SOM ? "🔊" : "🔇"; b.style.display = EU && EU.id !== "tela" ? "" : "none"; } }
+$("#somtop").onclick = () => { SOM = !SOM; try { localStorage.setItem("somTeclas", SOM ? "1" : "0"); } catch (e) { } somTopUI(); if (SOM) somOk(); aviso(SOM ? "🔊 Som das teclas ligado" : "🔇 Som das teclas desligado", 1800); if (VIEW === "ajustes") render(); };
 $("#av").onclick = () => { if (EU && EU.id !== "tela") ir("ajustes"); };
 
 /* ---------- atualização automática da interface ---------- */
@@ -15640,6 +15747,7 @@ async function autoMapas() {
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
   if (!EU || !(pode("triar") || pode("editarTodos"))) return;
   setTimeout(preencherBairros, 15000);
+  setTimeout(() => { if (navigator.onLine) completarSemSinal().then(n => { if (n) { aviso(`✅ ${n} OS completada(s) com endereço/mapa`, 5000); render(); } }); }, 9000);
   if (!(await kvGet("mapasCorrigidos1"))) setTimeout(async () => { await corrigirMapas(false); await kvSet("mapasCorrigidos1", 1); }, 4000);
   /* 01/11/2026: endereços conferidos pelo carimbo no servidor → baixa e refaz os mapas pelo endereço certo */
   else if (temServidor() && !(await kvGet("mapasCorrigidos3"))) setTimeout(async () => { await sincronizar(true); if (SYNC.estado !== "ok" && SYNC.estado !== "pend") return; const x = await corrigirMapas(false); if (x && x.ok === x.total) await kvSet("mapasCorrigidos3", 1); }, 4000);
@@ -15653,7 +15761,8 @@ async function autoMapas() {
     for (const r of await osAll()) OS.set(r.id, registro(r));
     const p = await kvGet("perfil");
     if (p && p.id === "tela" && ehTela() && TOKEN) EU = Object.assign({}, TELA);
-    else if (p) { const b = PERFIS.find(x => x.id === p.id); if (b) EU = Object.assign({}, b, { nome: p.nome || b.nome }); }
+    else if (p && ehWeb()) { const wp = await kvGet("webPerfil"); const b = PERFIS.find(x => x.id === p.id); if (b && TOKEN && wp === p.id) EU = Object.assign({}, b, { nome: p.nome || b.nome }); }
+    else if (p && !ehTela()) { const b = PERFIS.find(x => x.id === p.id); if (b) EU = Object.assign({}, b, { nome: p.nome || b.nome }); }
     syncUI();
     render();
     try { if (ANDROID && window.Android.uiOk) window.Android.uiOk(); } catch (e) { }
