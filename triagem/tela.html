@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "oU6mMqZ0qNVQsK5HuHBk0Q==", "i": "rLzEo3vHCQn0Z
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 46;                       // versão da interface (sobe a cada publicação)
+const APP_V = 47;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14086,7 +14086,9 @@ function lerCarimbo(txt) {
     if (lat > 0 && lat < 15 && lng > 30 && lng < 45) { lat = -lat; lng = -lng; }
     else if (lat > 0 && lat < 15 && lng < 0) lat = -lat;
     else if (lat < 0 && lng > 30 && lng < 45) lng = -lng;
-    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng)) { out.lat = +lat.toFixed(6); out.lng = +lng.toFixed(6); }
+    // só aceita ponto dentro de Sergipe (com folga): OCR que troca dígito (37 → 57) não vira mapa errado
+    if (lat <= -9.2 && lat >= -11.9 && lng <= -36.1 && lng >= -38.6) { out.lat = +lat.toFixed(6); out.lng = +lng.toFixed(6); }
+    else out.coordFora = `${lat}, ${lng}`;
   }
   // data e hora
   const d1 = t.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})[^\d]{1,12}?(\d{1,2})[:h](\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/);
