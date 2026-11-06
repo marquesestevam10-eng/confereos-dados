@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 49,
+  "v": 50,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-49.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-50.html"
  },
  "apk": {
   "v": 7,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 49: Total triado acumulado no painel",
- "data": "04/11/2026"
+ "nota": "Interface 50: códigos 613266, 613285, 513201",
+ "data": "06/11/2026"
 }
