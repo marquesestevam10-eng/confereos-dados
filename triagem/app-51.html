@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 48;                       // versão da interface (sobe a cada publicação)
+const APP_V = 51;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13310,6 +13310,9 @@ const SERV = {
   "613284": { n: "Recomposição de calçada — U.C. (via arterial)", cbuq: 0, tipo: "calcada" },
   "613265": { n: "Recomposição de lajota / paralelepípedo — LOG (via local)", cbuq: 0, tipo: "paralelo" },
   "613274": { n: "Recomposição de lajota / paralelepípedo — LOG (via arterial)", cbuq: 0, tipo: "paralelo" },
+  "613266": { n: "Recomposição de lajota / paralelepípedo — U.C. (via local)", cbuq: 0, tipo: "paralelo" },
+  "613285": { n: "Recomposição de calçada — LOG (via local)", cbuq: 0, tipo: "calcada" },
+  "513201": { n: "Reclamação de recomposição de pavimento (asfalto)", cbuq: 1, tipo: "asfalto" },
 };
 /* tipo de pavimentação: Asfalto / Calçada / Paralelo */
 const TIPOS = {
@@ -14321,6 +14324,7 @@ function telaPainel(m) {
     <div class="kpi prog" data-ir="lista" data-st="programada"><div class="n">${t.programada.n}</div><div class="l">Programadas</div><div class="s mono">${nf(t.programada.area, 1)} m²<br>${nf(t.programada.massa, 2)} t</div></div>
     <div class="kpi exec" data-ir="lista" data-st="executada"><div class="n">${t.executada.n}</div><div class="l">Executadas</div><div class="s mono">${nf(t.executada.area, 1)} m²<br>${nf(t.executada.massa, 2)} t</div></div>
   </div>
+  ${cardAcumulado(all)}
   <div class="card"><h2>📋 Hoje <span class="r">${brDia(hoje)}</span></h2>
     <div class="kv"><dt>Triagens do dia</dt><dd class="mono">${td.n} OS · ${nf(td.area)} m² · ${nf(td.massa)} t</dd>
     <dt>Executadas hoje</dt><dd class="mono">${exHoje.n} OS · ${nf(exHoje.area)} m² · ${nf(exHoje.massa)} t</dd>
@@ -14537,6 +14541,22 @@ function textoOS(r) {
   const seq = seqDoDia(r.tri.dia); const n = seq.findIndex(x => x.id === r.id) + 1; const t = totais(seq); const c = r._c, T = r.tri;
   const al = (privado() ? agentesDaOS(r).map(a => a.t) : []).concat(duplicatas(r).map(d => "possível duplicidade: " + dupTxt(d)));
   return `OS ${r.os} cadastrada, a ${n || "?"}ª do relatório: ${endTxt(T.end)}, com ${nf(c.area)} m²${c.massa ? ` e ${nf(c.massa)} t` : ""}. ${TIPOS[tipoDe(T)].n} — serviço ${T.servico} (${(SERV[T.servico] || {}).n || ""}${T.servicoConfirmado ? "" : " — confirmar"}), ${T.entulho ? "com" : "sem"} remoção de entulhos.${al.length ? " ⚠ " + al.join("; ") + "." : ""} Acumulado de ${T.dia === isoDia() ? "hoje" : brDia(T.dia)}: ${t.n} OS, ${nf(t.area)} m² e ${nf(t.massa)} t.`;
+}
+
+/* Total triado acumulado (interface 49): nunca diminui com programação/baixa — é o que vai pro ConfereOS */
+const MES_N = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function cardAcumulado(all) {
+  const T = totais(all); if (!T.n) return "";
+  const meses = {}; all.forEach(r => { const k = (r.tri.dia || "").slice(0, 7); (meses[k] = meses[k] || []).push(r); });
+  const env = all.filter(r => r.tri.enviadoConfere).length, falta = all.length - env;
+  const ex = all.filter(r => r._st === "executada").length, pr = all.filter(r => r._st === "programada").length;
+  return `<div class="card"><h2>🧮 Total triado <span class="r">acumulado · não diminui</span></h2>
+    <div class="row" style="align-items:baseline;gap:10px"><b style="font-size:30px;line-height:1;flex:none" class="mono">${T.n}</b><span class="small">OS triadas · <b class="mono">${nf(T.area)}</b> m² · <b class="mono">${nf(T.massa)}</b> t de asfalto</span></div>
+    <div class="small muted" style="margin-top:4px">${T.n - ex - pr} esperando · ${pr} programadas · ${ex} executadas</div>
+    <div class="kv" style="margin-top:8px">${Object.entries(meses).sort().map(([k, l]) => { const t = totais(l); const [a, m] = k.split("-"); return `<dt>${MES_N[+m - 1] ? MES_N[+m - 1][0].toUpperCase() + MES_N[+m - 1].slice(1) + "/" + a : "Sem data"}</dt><dd class="mono">${t.n} OS · ${nf(t.area)} m² · ${nf(t.massa)} t</dd>`; }).join("")}</div>
+    <div class="small" style="margin-top:6px">${Object.entries(TIPOS).map(([k, v]) => { const l = all.filter(r => tipoDe(r.tri) === k); return l.length ? `${v.ic} ${v.n}: <b>${l.length}</b> OS · ${nf(totais(l).area)} m²` : ""; }).filter(Boolean).join(" &nbsp;·&nbsp; ")}</div>
+    <div class="achado" data-ir="rel" style="margin-top:8px;cursor:pointer"><span>📤 <b>ConfereOS:</b> ${env} enviadas · <b style="color:${falta ? "var(--red,#c62828)" : "inherit"}">${falta} faltam enviar</b></span><span class="muted" style="flex:none">›</span></div>
+  </div>`;
 }
 
 /* ================= Formulário de triagem ================= */
@@ -15964,6 +15984,9 @@ async function limparDuplicada3502780() {
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
   setTimeout(registrarAcesso, 5000);
+  // app/navegador que fica aberto o dia todo também registra (de hora em hora, só com a tela à vista)
+  setInterval(() => { if (document.visibilityState === "visible") registrarAcesso(); }, 10 * 60e3);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") registrarAcesso(); });
   if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
