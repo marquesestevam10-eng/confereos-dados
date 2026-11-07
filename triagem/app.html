@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 52;                       // versão da interface (sobe a cada publicação)
+const APP_V = 53;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14339,9 +14339,6 @@ function telaPainel(m) {
   const ach = rodarAgentes(); const nAl = ach.reduce((a, g) => a + g.itens.filter(i => i.n >= 2).length, 0);
   // últimos 14 dias
   const dias = [...Array(14)].map((_, i) => somaDias(hoje, i - 13));
-  // bairros pendentes
-  const bai = {}; all.filter(r => r._st === "triada" || r._st === "programada").forEach(r => { const b = setorDe(r.tri); const x = (bai[b] = bai[b] || { n: 0, t: 0, a: 0 }); x.n++; x.t += r._c.massa; x.a += r._c.area; });
-  const bais = Object.entries(bai).sort((a, b) => ordemSetor(a[0], b[0]) || b[1].a - a[1].a); const mb = Math.max(0.01, ...bais.map(b => b[1].a));
   const tot = all.length || 1, pctExec = Math.round(t.executada.n / tot * 100);
   m.innerHTML = `
   <div class="kpis">
@@ -14368,10 +14365,7 @@ function telaPainel(m) {
     ${ach.filter(g => g.itens.some(i => i.n >= 2)).slice(0, 3).map(g => `<div class="small">${g.ic} <b>${g.nome}:</b> ${esc(g.itens.find(i => i.n >= 2).t)}</div>`).join("") || '<div class="small muted">Endereço, fotos, cargas, serviço, prazo e conferência sem pendências.</div>'}
   </div>` : ""}
   ${Object.keys(TIPOS).map(k => grafico14(all.filter(r => tipoDe(r.tri) === k), dias, k)).join("")}
-  <div class="card"><h2>📍 Falta fazer por setor <span class="r">Aracaju por bairro · demais por cidade</span></h2>
-    ${bais.length ? bais.map(([b, v], k) => { const aj = b.startsWith("Aracaju · "), cab = aj && (k === 0) ? '<div class="small" style="margin:4px 0 2px;color:var(--muted);font-weight:700">ARACAJU</div>' : !aj && (k === 0 || bais[k - 1][0].startsWith("Aracaju · ")) ? '<div class="small" style="margin:10px 0 2px;color:var(--muted);font-weight:700">DEMAIS CIDADES DA REGIONAL</div>' : "";
-      return `${cab}<div style="margin:6px 0;cursor:pointer" data-setor-ir="${esc(b)}"><div class="row small" style="justify-content:space-between"><span><b>${esc(aj ? b.slice(10) : b)}</b> · ${v.n} OS</span><span class="mono" style="flex:none">${nf(v.a)} m²${v.t ? " · " + nf(v.t) + " t" : ""}</span></div><div class="bar"><i style="width:${v.a / mb * 100}%;background:${aj ? "var(--amarelo)" : "#2a62a6"}"></i></div></div>`; }).join("") : '<div class="muted small">Nenhuma OS pendente.</div>'}
-  </div>
+  ${Object.keys(TIPOS).map(k => setoresDoTipo(all, k)).join("")}
   <div class="card"><h2>🕑 Últimas movimentações</h2>${ultimas()}</div>${CREDITO}`;
 }
 function ultimas() {
@@ -14381,7 +14375,7 @@ function ultimas() {
   const nome = { triada: "triou", editada: "editou", programada: "programou", executada: "deu baixa em", conferida: "conferiu", cancelada: "cancelou", "baixa desfeita": "desfez a baixa de", "programação removida": "tirou da programação" };
   return ev.slice(0, 8).map(({ r, h }) => `<div class="achado" data-os="${r.id}"><span class="muted mono small" style="flex:none">${brHora(h.em)}</span><span><b>${esc(nomePerfil(h.por).split(" ")[0])}</b> ${nome[h.acao] || h.acao} <b>OS ${esc(r.os)}</b>${h.acao === "programada" && r.prog ? ` · eq. ${esc(r.prog.equipe)}` : ""}</span></div>`).join("") || '<div class="muted small">Nada ainda. Faça a primeira triagem.</div>';
 }
-document.addEventListener("click", e => { const b = e.target.closest("[data-setor-ir]"); if (!b) return; FILTRO.setor = b.dataset.setorIr; FILTRO.st = "ativas"; FILTRO.q = ""; ir("lista"); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-setor-ir]"); if (!b) return; FILTRO.setor = b.dataset.setorIr; FILTRO.st = "ativas"; FILTRO.q = ""; FILTRO.tipo = b.dataset.setorTp || "todos"; ir("lista"); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-novatri]"); if (b) abrirForm(null, { tipo: b.dataset.novatri }); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"); if (!b) return; const a = {}; if (b.dataset.st) a.st = b.dataset.st; if (b.dataset.q) { a.q = b.dataset.q; a.st = "ativas"; } if (b.dataset.tp) { a.tipo = b.dataset.tp; a.st = "ativas"; } ir(b.dataset.ir, a); });
 
@@ -14594,6 +14588,18 @@ function grafico14(l, dias, k) {
     ${l.length ? `<svg viewBox="0 0 280 110" style="width:100%;height:auto">${serie.map((s, i) => { const x = i * 20 + 2, h1 = s.tri / mx * 80, h2 = s.exe / mx * 80; return `<rect x="${x}" y="${88 - h1}" width="7.5" height="${h1}" rx="1.5" fill="#f2b705"/><rect x="${x + 8.5}" y="${88 - h2}" width="7.5" height="${h2}" rx="1.5" fill="#23764a"/>${s.tri ? `<text x="${x + 3.7}" y="${85 - h1}" font-size="7" text-anchor="middle" fill="#5f665d">${s.tri}</text>` : ""}${s.exe ? `<text x="${x + 12.2}" y="${85 - h2}" font-size="7" text-anchor="middle" fill="#23764a">${s.exe}</text>` : ""}<text x="${x + 8}" y="100" font-size="6.5" text-anchor="middle" fill="#5f665d">${s.d.slice(8)}</text>`; }).join("")}<line x1="0" x2="280" y1="88.5" y2="88.5" stroke="#dcdbd3"/></svg>
     <div class="kv small"><dt>Nos 14 dias</dt><dd class="mono">${sTri} triadas · ${sExe} executadas</dd><dt>Falta fazer</dt><dd class="mono">${p.n} OS · ${med(p)}</dd><dt>Executado</dt><dd class="mono">${ex.n} OS · ${med(ex)}</dd></div>`
     : `<div class="small muted">Nenhuma OS de ${v.n.toLowerCase()} ainda.</div>`}
+  </div>`;
+}
+
+/* falta fazer por setor, separado por pavimentação (interface 53) */
+function setoresDoTipo(all, k) {
+  const v = TIPOS[k], asf = k === "asfalto";
+  const bai = {}; all.filter(r => tipoDe(r.tri) === k && (r._st === "triada" || r._st === "programada")).forEach(r => { const b = setorDe(r.tri); const x = (bai[b] = bai[b] || { n: 0, t: 0, a: 0 }); x.n++; x.t += r._c.massa; x.a += r._c.area; });
+  const bais = Object.entries(bai).sort((a, b) => ordemSetor(a[0], b[0]) || b[1].a - a[1].a); const mb = Math.max(0.01, ...bais.map(b => b[1].a));
+  const tot = bais.reduce((s, [, x]) => ({ n: s.n + x.n, a: s.a + x.a, t: s.t + x.t }), { n: 0, a: 0, t: 0 });
+  return `<div class="card"><h2>📍 ${v.ic} ${v.n} · falta fazer por setor <span class="r mono">${tot.n} OS · ${nf(tot.a)} m²${asf ? " · " + nf(tot.t) + " t" : ""}</span></h2>
+    ${bais.length ? bais.map(([b, x], i) => { const aj = b.startsWith("Aracaju · "), cab = aj && i === 0 ? '<div class="small" style="margin:4px 0 2px;color:var(--muted);font-weight:700">ARACAJU</div>' : !aj && (i === 0 || bais[i - 1][0].startsWith("Aracaju · ")) ? '<div class="small" style="margin:10px 0 2px;color:var(--muted);font-weight:700">DEMAIS CIDADES DA REGIONAL</div>' : "";
+      return `${cab}<div style="margin:6px 0;cursor:pointer" data-setor-ir="${esc(b)}" data-setor-tp="${k}"><div class="row small" style="justify-content:space-between"><span><b>${esc(aj ? b.slice(10) : b)}</b> · ${x.n} OS</span><span class="mono" style="flex:none">${nf(x.a)} m²${asf ? " · " + nf(x.t) + " t" : ""}</span></div><div class="bar"><i style="width:${x.a / mb * 100}%;background:${aj ? "var(--amarelo)" : "#2a62a6"}"></i></div></div>`; }).join("") : `<div class="muted small">Nenhuma OS de ${v.n.toLowerCase()} pendente.</div>`}
   </div>`;
 }
 

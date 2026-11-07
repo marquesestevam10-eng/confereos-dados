@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 50;                       // versão da interface (sobe a cada publicação)
+const APP_V = 53;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14218,6 +14218,33 @@ async function preencherBairros() {
   } finally { _bairros = false; }
 }
 
+/* ---------- coordenada a partir de link de localização (Google Maps, WhatsApp, e-mail, Waze, Apple, geo:) — interface 52 ---------- */
+function coordDoTexto(t) {
+  let u = String(t || ""); try { u = decodeURIComponent(u.replace(/\+/g, " ")); } catch (e) { }
+  const pads = [/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/, /@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/,
+    /[?&;](?:q|query|ll|sll|destination|daddr|center|saddr|coordinates)=(?:loc:)?\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/i,
+    /ll=(-?\d{1,2}\.\d+)(?:%2C|,)(-?\d{1,3}\.\d+)/i, /geo:(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/i,
+    /(-?\d{1,2}[.,]\d{3,})\s*[,; ]\s*(-?\d{1,3}[.,]\d{3,})/];
+  for (const p of pads) {
+    const m = u.match(p); if (!m) continue;
+    let la = +m[1].replace(",", "."), lo = +m[2].replace(",", ".");
+    if (la > 0 && la < 15) la = -la; if (lo > 30 && lo < 45) lo = -lo;          // Sergipe: sul e oeste
+    if (la <= -9.2 && la >= -11.9 && lo <= -36.1 && lo >= -38.6) return { lat: +la.toFixed(6), lng: +lo.toFixed(6) };
+  }
+  const c = lerCarimbo(u); if (c && c.lat != null) return { lat: c.lat, lng: c.lng };   // graus/minutos/segundos
+  return null;
+}
+async function coordDoLink(txt) {
+  const direto = coordDoTexto(txt); if (direto) return direto;
+  const url = (String(txt).match(/https?:\/\/[^\s<>"']+/) || [])[0];
+  if (!url) return null;
+  // link curto (maps.app.goo.gl etc.): o casco Android segue o redirecionamento (APK 1.5+)
+  if (window.Android && Android.resolverLink) {
+    try { const fim = await new Promise(ok => setTimeout(() => ok(Android.resolverLink(url)), 0)); const c = coordDoTexto(fim); if (c) return c; } catch (e) { }
+  }
+  return { curto: true, url };
+}
+
 /* ================= Telas ================= */
 const ICON = {
   painel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -14312,11 +14339,6 @@ function telaPainel(m) {
   const ach = rodarAgentes(); const nAl = ach.reduce((a, g) => a + g.itens.filter(i => i.n >= 2).length, 0);
   // últimos 14 dias
   const dias = [...Array(14)].map((_, i) => somaDias(hoje, i - 13));
-  const serie = dias.map(d => ({ d, tri: all.filter(r => r.tri.dia === d).length, exe: all.filter(r => r.exec?.data === d && r._st === "executada").length }));
-  const mx = Math.max(1, ...serie.map(s => Math.max(s.tri, s.exe)));
-  // bairros pendentes
-  const bai = {}; all.filter(r => r._st === "triada" || r._st === "programada").forEach(r => { const b = setorDe(r.tri); const x = (bai[b] = bai[b] || { n: 0, t: 0, a: 0 }); x.n++; x.t += r._c.massa; x.a += r._c.area; });
-  const bais = Object.entries(bai).sort((a, b) => ordemSetor(a[0], b[0]) || b[1].a - a[1].a); const mb = Math.max(0.01, ...bais.map(b => b[1].a));
   const tot = all.length || 1, pctExec = Math.round(t.executada.n / tot * 100);
   m.innerHTML = `
   <div class="kpis">
@@ -14342,13 +14364,8 @@ function telaPainel(m) {
   ${privado() ? `<div class="card" data-ir="agentes" style="cursor:pointer"><h2>🤖 Agentes <span class="r">${nAl ? `<span class="tag pend">${nAl} alerta(s)</span>` : '<span class="tag executada">tudo certo</span>'} ›</span></h2>
     ${ach.filter(g => g.itens.some(i => i.n >= 2)).slice(0, 3).map(g => `<div class="small">${g.ic} <b>${g.nome}:</b> ${esc(g.itens.find(i => i.n >= 2).t)}</div>`).join("") || '<div class="small muted">Endereço, fotos, cargas, serviço, prazo e conferência sem pendências.</div>'}
   </div>` : ""}
-  <div class="card"><h2>📈 Últimos 14 dias <span class="r"><span style="color:var(--tri)">■</span> triadas <span style="color:var(--exec)">■</span> executadas</span></h2>
-    <svg viewBox="0 0 280 110" style="width:100%;height:auto">${serie.map((s, i) => { const x = i * 20 + 2, h1 = s.tri / mx * 80, h2 = s.exe / mx * 80; return `<rect x="${x}" y="${88 - h1}" width="7.5" height="${h1}" rx="1.5" fill="#f2b705"/><rect x="${x + 8.5}" y="${88 - h2}" width="7.5" height="${h2}" rx="1.5" fill="#23764a"/>${s.tri ? `<text x="${x + 3.7}" y="${85 - h1}" font-size="7" text-anchor="middle" fill="#5f665d">${s.tri}</text>` : ""}<text x="${x + 8}" y="100" font-size="6.5" text-anchor="middle" fill="#5f665d">${s.d.slice(8)}</text>`; }).join("")}<line x1="0" x2="280" y1="88.5" y2="88.5" stroke="#dcdbd3"/></svg>
-  </div>
-  <div class="card"><h2>📍 Falta fazer por setor <span class="r">Aracaju por bairro · demais por cidade</span></h2>
-    ${bais.length ? bais.map(([b, v], k) => { const aj = b.startsWith("Aracaju · "), cab = aj && (k === 0) ? '<div class="small" style="margin:4px 0 2px;color:var(--muted);font-weight:700">ARACAJU</div>' : !aj && (k === 0 || bais[k - 1][0].startsWith("Aracaju · ")) ? '<div class="small" style="margin:10px 0 2px;color:var(--muted);font-weight:700">DEMAIS CIDADES DA REGIONAL</div>' : "";
-      return `${cab}<div style="margin:6px 0;cursor:pointer" data-setor-ir="${esc(b)}"><div class="row small" style="justify-content:space-between"><span><b>${esc(aj ? b.slice(10) : b)}</b> · ${v.n} OS</span><span class="mono" style="flex:none">${nf(v.a)} m²${v.t ? " · " + nf(v.t) + " t" : ""}</span></div><div class="bar"><i style="width:${v.a / mb * 100}%;background:${aj ? "var(--amarelo)" : "#2a62a6"}"></i></div></div>`; }).join("") : '<div class="muted small">Nenhuma OS pendente.</div>'}
-  </div>
+  ${Object.keys(TIPOS).map(k => grafico14(all.filter(r => tipoDe(r.tri) === k), dias, k)).join("")}
+  ${Object.keys(TIPOS).map(k => setoresDoTipo(all, k)).join("")}
   <div class="card"><h2>🕑 Últimas movimentações</h2>${ultimas()}</div>${CREDITO}`;
 }
 function ultimas() {
@@ -14358,7 +14375,7 @@ function ultimas() {
   const nome = { triada: "triou", editada: "editou", programada: "programou", executada: "deu baixa em", conferida: "conferiu", cancelada: "cancelou", "baixa desfeita": "desfez a baixa de", "programação removida": "tirou da programação" };
   return ev.slice(0, 8).map(({ r, h }) => `<div class="achado" data-os="${r.id}"><span class="muted mono small" style="flex:none">${brHora(h.em)}</span><span><b>${esc(nomePerfil(h.por).split(" ")[0])}</b> ${nome[h.acao] || h.acao} <b>OS ${esc(r.os)}</b>${h.acao === "programada" && r.prog ? ` · eq. ${esc(r.prog.equipe)}` : ""}</span></div>`).join("") || '<div class="muted small">Nada ainda. Faça a primeira triagem.</div>';
 }
-document.addEventListener("click", e => { const b = e.target.closest("[data-setor-ir]"); if (!b) return; FILTRO.setor = b.dataset.setorIr; FILTRO.st = "ativas"; FILTRO.q = ""; ir("lista"); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-setor-ir]"); if (!b) return; FILTRO.setor = b.dataset.setorIr; FILTRO.st = "ativas"; FILTRO.q = ""; FILTRO.tipo = b.dataset.setorTp || "todos"; ir("lista"); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-novatri]"); if (b) abrirForm(null, { tipo: b.dataset.novatri }); });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ir]"); if (!b) return; const a = {}; if (b.dataset.st) a.st = b.dataset.st; if (b.dataset.q) { a.q = b.dataset.q; a.st = "ativas"; } if (b.dataset.tp) { a.tipo = b.dataset.tp; a.st = "ativas"; } ir(b.dataset.ir, a); });
 
@@ -14559,6 +14576,33 @@ function cardAcumulado(all) {
   </div>`;
 }
 
+/* gráfico dos últimos 14 dias separado por pavimentação (interface 52): asfalto, calçada e paralelo */
+function grafico14(l, dias, k) {
+  const v = TIPOS[k], asf = k === "asfalto";
+  const serie = dias.map(d => { const tr = l.filter(r => r.tri.dia === d), ex = l.filter(r => r.exec?.data === d && r._st === "executada"); return { d, tri: tr.length, exe: ex.length }; });
+  const mx = Math.max(1, ...serie.map(s => Math.max(s.tri, s.exe)));
+  const p = totais(l.filter(r => r._st === "triada" || r._st === "programada")), ex = totais(l.filter(r => r._st === "executada"));
+  const sTri = serie.reduce((a, s) => a + s.tri, 0), sExe = serie.reduce((a, s) => a + s.exe, 0);
+  const med = x => `${nf(x.area)} m²${asf ? " · " + nf(x.massa) + " t" : ""}`;
+  return `<div class="card" data-ir="lista" data-tp="${k}" style="cursor:pointer"><h2>${v.ic} ${v.n} · 14 dias <span class="r"><span style="color:var(--tri)">■</span> triadas <span style="color:var(--exec)">■</span> executadas</span></h2>
+    ${l.length ? `<svg viewBox="0 0 280 110" style="width:100%;height:auto">${serie.map((s, i) => { const x = i * 20 + 2, h1 = s.tri / mx * 80, h2 = s.exe / mx * 80; return `<rect x="${x}" y="${88 - h1}" width="7.5" height="${h1}" rx="1.5" fill="#f2b705"/><rect x="${x + 8.5}" y="${88 - h2}" width="7.5" height="${h2}" rx="1.5" fill="#23764a"/>${s.tri ? `<text x="${x + 3.7}" y="${85 - h1}" font-size="7" text-anchor="middle" fill="#5f665d">${s.tri}</text>` : ""}${s.exe ? `<text x="${x + 12.2}" y="${85 - h2}" font-size="7" text-anchor="middle" fill="#23764a">${s.exe}</text>` : ""}<text x="${x + 8}" y="100" font-size="6.5" text-anchor="middle" fill="#5f665d">${s.d.slice(8)}</text>`; }).join("")}<line x1="0" x2="280" y1="88.5" y2="88.5" stroke="#dcdbd3"/></svg>
+    <div class="kv small"><dt>Nos 14 dias</dt><dd class="mono">${sTri} triadas · ${sExe} executadas</dd><dt>Falta fazer</dt><dd class="mono">${p.n} OS · ${med(p)}</dd><dt>Executado</dt><dd class="mono">${ex.n} OS · ${med(ex)}</dd></div>`
+    : `<div class="small muted">Nenhuma OS de ${v.n.toLowerCase()} ainda.</div>`}
+  </div>`;
+}
+
+/* falta fazer por setor, separado por pavimentação (interface 53) */
+function setoresDoTipo(all, k) {
+  const v = TIPOS[k], asf = k === "asfalto";
+  const bai = {}; all.filter(r => tipoDe(r.tri) === k && (r._st === "triada" || r._st === "programada")).forEach(r => { const b = setorDe(r.tri); const x = (bai[b] = bai[b] || { n: 0, t: 0, a: 0 }); x.n++; x.t += r._c.massa; x.a += r._c.area; });
+  const bais = Object.entries(bai).sort((a, b) => ordemSetor(a[0], b[0]) || b[1].a - a[1].a); const mb = Math.max(0.01, ...bais.map(b => b[1].a));
+  const tot = bais.reduce((s, [, x]) => ({ n: s.n + x.n, a: s.a + x.a, t: s.t + x.t }), { n: 0, a: 0, t: 0 });
+  return `<div class="card"><h2>📍 ${v.ic} ${v.n} · falta fazer por setor <span class="r mono">${tot.n} OS · ${nf(tot.a)} m²${asf ? " · " + nf(tot.t) + " t" : ""}</span></h2>
+    ${bais.length ? bais.map(([b, x], i) => { const aj = b.startsWith("Aracaju · "), cab = aj && i === 0 ? '<div class="small" style="margin:4px 0 2px;color:var(--muted);font-weight:700">ARACAJU</div>' : !aj && (i === 0 || bais[i - 1][0].startsWith("Aracaju · ")) ? '<div class="small" style="margin:10px 0 2px;color:var(--muted);font-weight:700">DEMAIS CIDADES DA REGIONAL</div>' : "";
+      return `${cab}<div style="margin:6px 0;cursor:pointer" data-setor-ir="${esc(b)}" data-setor-tp="${k}"><div class="row small" style="justify-content:space-between"><span><b>${esc(aj ? b.slice(10) : b)}</b> · ${x.n} OS</span><span class="mono" style="flex:none">${nf(x.a)} m²${asf ? " · " + nf(x.t) + " t" : ""}</span></div><div class="bar"><i style="width:${x.a / mb * 100}%;background:${aj ? "var(--amarelo)" : "#2a62a6"}"></i></div></div>`; }).join("") : `<div class="muted small">Nenhuma OS de ${v.n.toLowerCase()} pendente.</div>`}
+  </div>`;
+}
+
 /* ================= Formulário de triagem ================= */
 function abrirForm(r, op = {}) {
   if (!pode("triar") && !pode("editarTodos")) return aviso("Seu perfil não faz triagem");
@@ -14587,6 +14631,7 @@ function abrirForm(r, op = {}) {
     <label class="f">Localização</label>
     <div class="loc" id="floc"></div>
     <div class="row" style="margin-top:6px"><button class="btn sm" id="fgps">📍 Usar meu GPS agora</button><button class="btn sm" id="fcoord">✍️ Digitar coordenada</button></div>
+    <button class="btn sm w" id="flink" style="margin-top:6px">🔗 Colar link da localização (e-mail, WhatsApp, Google Maps)</button>
     <button class="btn sm w" style="margin-top:6px" id="fpeloend">🗺️ Pôr o mapa no endereço digitado</button>
     <div class="grid2" style="margin-top:4px">
       <div style="grid-column:1/3"><label class="f">Rua</label><input class="in" id="frua" value="${esc(T.end.rua || "")}" placeholder="Preenche sozinho pela coordenada"></div>
@@ -14696,7 +14741,9 @@ function abrirForm(r, op = {}) {
     if (x.entulho != null) { T.entulho = x.entulho; $$("#fent button", s).forEach(b => b.classList.toggle("on", (b.dataset.v === "1") === x.entulho)); feito.push(x.entulho ? "com remoção" : "sem remoção"); }
     for (const [k, id] of [["rua", "frua"], ["num", "fnum"], ["bairro", "fbai"], ["mun", "fmun"]]) if (x[k]) { $("#" + id, s).value = x[k]; }
     if (x.rua) feito.push([x.rua, x.num, x.bairro, x.mun].filter(Boolean).join(", "));
-    calc(); checaOS(); if (x.rua || x.bairro) mapaPeloEndereco(false);
+    calc(); checaOS();
+    if (/https?:\/\/\S*(maps|goo\.gl|g\.co|waze|apple)|geo:-?\d/i.test(t)) { usarLink(t, false).then(ok => { if (!ok && (x.rua || x.bairro)) mapaPeloEndereco(false); }); feito.push("link de localização"); }
+    else if (x.rua || x.bairro) mapaPeloEndereco(false);
     $("#ftxtres", s).innerHTML = `<div class="alert ${feito.length ? "o" : "w"}" style="margin-bottom:0">${feito.length ? "✅ Lido: " + esc(feito.join(" · ")) + (x.os && !x.trechos.length && !x.areaOS ? "<br>Medidas não encontradas: preencha abaixo ou fale no áudio." : "") : "Não achei OS nem medidas nesse texto."}</div>`;
   }
   let tmTxt; $("#ftxt", s).addEventListener("input", () => { clearTimeout(tmTxt); tmTxt = setTimeout(lerColado, 400); });
@@ -14802,6 +14849,20 @@ function abrirForm(r, op = {}) {
   $("#fgal", s).onchange = e => { addFotos([...e.target.files], false); e.target.value = ""; };
   $("#fpeloend", s).onclick = () => mapaPeloEndereco(true);
   $("#fgps", s).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível. Ligue a localização do celular."); definirLoc({ lat: g.lat, lng: g.lng, origem: "gps", acc: g.acc, agora: 1 }); };
+  // link de localização mandado por e-mail/WhatsApp (interface 52)
+  async function usarLink(txt, avisarSeNada = true) {
+    if (!coordDoTexto(txt) && /https?:/.test(txt)) aviso("🔗 Abrindo o link…");
+    const c = await coordDoLink(txt);
+    if (c && c.lat != null) { await definirLoc({ lat: c.lat, lng: c.lng, origem: "manual", link: true }, true, true); aviso("✅ Localização do link: " + c.lat.toFixed(6) + ", " + c.lng.toFixed(6)); return true; }
+    if (c && c.curto && avisarSeNada) aviso("⚠ Link curto não abriu aqui. Abra o link no Google Maps, toque no ponto vermelho, copie a coordenada e cole de novo.");
+    else if (avisarSeNada) aviso("⚠ Não achei coordenada nesse link/texto");
+    return false;
+  }
+  $("#flink", s).onclick = async () => {
+    let t = ""; try { t = await navigator.clipboard.readText(); } catch (e) { }
+    if (!t || !/https?:|geo:|\d+[.,]\d+/.test(t)) t = prompt("Cole aqui o link da localização (do e-mail, WhatsApp ou Google Maps):", t || "") || "";
+    if (t.trim()) usarLink(t.trim());
+  };
   $("#fcoord", s).onclick = () => {
     const v = prompt("Cole a coordenada (ex.: -10.9123, -37.0531) ou um link do Google Maps:"); if (!v) return;
     const m = v.match(/(-?\d{1,2}[.,]\d+)\s*[, ;]\s*(-?\d{1,3}[.,]\d+)/); if (!m) return aviso("Coordenada inválida");
@@ -15984,6 +16045,9 @@ async function limparDuplicada3502780() {
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
   setTimeout(registrarAcesso, 5000);
+  // app/navegador que fica aberto o dia todo também registra (de hora em hora, só com a tela à vista)
+  setInterval(() => { if (document.visibilityState === "visible") registrarAcesso(); }, 10 * 60e3);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") registrarAcesso(); });
   if (EU && EU.id !== "tela") subirLocal();
   if (EU && privado() && !(await kvGet("dupZerado1"))) { await zerarDuplicidades(false); await kvSet("dupZerado1", 1); }
   if (EU && privado() && !(await kvGet("dup3502780"))) { if (await limparDuplicada3502780()) { aviso("🗑 OS 3502780 duplicada: ficou só 1 registro", 5000); render(); } await kvSet("dup3502780", 1); }
