@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 54,
+  "v": 55,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-54.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-55.html"
  },
  "apk": {
-  "v": 8,
+  "v": 9,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 54: código 513202",
- "data": "10/11/2026"
+ "nota": "Interface 55: recupera foto da câmera",
+ "data": "14/11/2026"
 }
