@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 54;                       // versão da interface (sobe a cada publicação)
+const APP_V = 57;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -13828,6 +13828,7 @@ async function processarFoto(file, agora) {
     const g = await coordPeloEnderecoDaFoto(carimbo);
     if (g) { lat = g.lat; lng = g.lng; origem = "endereco"; carimbo.geo = g; }
   }
+  if (lat == null && file._gps) { lat = file._gps.lat; lng = file._gps.lng; acc = file._gps.acc; origem = "gps"; }   // câmera do app: GPS na hora do clique
   if (lat == null && agora) { const g = await gpsAgora(); if (g) { lat = g.lat; lng = g.lng; acc = g.acc; origem = "gps"; } }
   const M = 1600, k = Math.min(1, M / Math.max(img.naturalWidth, img.naturalHeight));
   const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
@@ -14269,7 +14270,7 @@ function ir(v, arg) {
 const historico = [];
 window.__back = () => {
   if (document.body.classList.contains("relmode")) { fecharRel(); return "closed"; }
-  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa") || confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) u.remove(); return "closed"; }
+  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa")) u.remove(); else if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) { limparRasc(); u.remove(); } return "closed"; }
   if ($(".lightbox")) { $(".lightbox").remove(); return "closed"; }
   if (VIEW !== "painel") { ir("painel"); return "closed"; }
   return "none";
@@ -14611,6 +14612,7 @@ function abrirForm(r, op = {}) {
   const novo = !r;
   const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: op.tipo ? TIPOS[op.tipo].padrao : "613287", servicoConfirmado: !!(op.tipo && op.tipo !== "asfalto"), entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
   const FN = [];          // fotos novas (ainda não carimbadas)
+  const guardarRasc = l => { if (novo) guardarFotosRasc(l); };
   const s = folha(`
     <button class="btn sm" id="fsair" style="float:right;width:auto;flex:none;margin:0 0 4px 8px">✖ Sair</button>
     <h3>${novo ? `📷 Nova triagem${op.tipo ? " de " + TIPOS[op.tipo].n.toLowerCase() : ""}` : "✏️ Editar OS " + esc(r.os)}</h3>
@@ -14846,8 +14848,17 @@ function abrirForm(r, op = {}) {
     $("#fdianota", s).innerHTML = d.certa ? `📅 Pela data da foto: <b>${brHora(d.em)}</b>` : `📅 Data do arquivo: <b>${brHora(d.em)}</b> — a foto não tinha data gravada (foto do WhatsApp perde a data). Confira o dia.`;
     if (isoDia(new Date(d.em)) !== isoDia()) aviso(`📅 Triagem lançada no dia da foto: ${brDia(isoDia(new Date(d.em)))}`);
   }
-  $("#fcam", s).onchange = e => { addFotos([...e.target.files], true); e.target.value = ""; };
-  $("#fgal", s).onchange = e => { addFotos([...e.target.files], false); e.target.value = ""; };
+  $("#fcam", s).onchange = e => { const l = [...e.target.files]; guardarRasc(l); addFotos(l, true); e.target.value = ""; };
+  // no app: câmera DENTRO do Triagem OS (a câmera do celular fazia o Android fechar o app e perder as fotos) — interface 56
+  $("#fcam", s).closest("label").addEventListener("click", async ev => {
+    if (!ANDROID || !navigator.mediaDevices?.getUserMedia) return;
+    ev.preventDefault();
+    const l = await cameraInterna();
+    if (l === "nativa") return $("#fcam", s).click();
+    if (l && l.length) { guardarRasc(l); addFotos(l, true); }
+  });
+  if (op.fotos && op.fotos.length) setTimeout(() => addFotos(op.fotos, true), 300);   // foto recuperada da câmera
+  $("#fgal", s).onchange = e => { const l = [...e.target.files]; guardarRasc(l); addFotos(l, false); e.target.value = ""; };
   $("#fpeloend", s).onclick = () => mapaPeloEndereco(true);
   $("#fgps", s).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível. Ligue a localização do celular."); definirLoc({ lat: g.lat, lng: g.lng, origem: "gps", acc: g.acc, agora: 1 }); };
   // link de localização mandado por e-mail/WhatsApp (interface 52)
@@ -14873,7 +14884,7 @@ function abrirForm(r, op = {}) {
   };
 
   // ---- salvar
-  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) fecharFolha(s); };
+  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) { limparRasc(); fecharFolha(s); } };
   $("#fsalvar", s).onclick = async () => {
     const os = $("#fos", s).value.trim().toUpperCase().replace(/\s/g, "");
     if (!os) return aviso("Informe o número da OS");
@@ -14908,7 +14919,7 @@ function abrirForm(r, op = {}) {
     T.upd = Date.now(); T.por = EU.id;
     rec.tri = T; rec.os = os;
     await salvarOS(rec, novo ? "triada" : "editada");
-    fecharFolha(s); render();
+    limparRasc(); fecharFolha(s); render();
     if (novo) {
       const msg = textoOS(OS.get(rec.id));
       const f2 = folha(`<h3>✅ OS ${esc(os)} cadastrada</h3><div class="card" style="font-size:14.5px">${esc(msg)}</div>
@@ -14920,6 +14931,98 @@ function abrirForm(r, op = {}) {
   desenhaTrechos(); desenhaFotos(); desenhaLoc(); checaOS();
   if (op.voz) setTimeout(porVoz, 300);
 }
+
+/* ---------- câmera dentro do app (interface 56/57): várias fotos sem sair do Triagem OS, câmera traseira,
+   funciona deitado, e grava na foto a coordenada (GPS do celular), a precisão e a data/hora ---------- */
+async function camTraseira() {
+  // acha a câmera de trás pelo nome (alguns celulares ignoram facingMode e abrem a de selfie)
+  try {
+    const ds = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+    const tr = ds.filter(d => /back|tr[aá]s|rear|environment|traseira|0$/i.test(d.label) && !/front|frontal|selfie|user/i.test(d.label));
+    return { ds, id: (tr[0] || {}).deviceId || null };
+  } catch (e) { return { ds: [], id: null }; }
+}
+function cameraInterna() {
+  return new Promise(async fim => {
+    const ov = document.createElement("div");
+    ov.className = "camov";
+    ov.innerHTML = `<style>
+      .camov{position:fixed;inset:0;z-index:9999;background:#000;overflow:hidden}
+      .camov video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+      .camov .ctop{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;justify-content:space-between;align-items:flex-start;pointer-events:none}
+      .camov .ctop>*{pointer-events:auto}
+      .camov .cinfo{color:#fff;font:600 14px system-ui;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:8px;line-height:1.35}
+      .camov .cbar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-around;padding:14px 8px 22px;background:rgba(0,0,0,.55)}
+      .camov .cb{background:#333;color:#fff;border:0;border-radius:10px;padding:12px 14px;font:600 14px system-ui}
+      .camov .cshot{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#f2b705;flex:none}
+      @media (orientation:landscape){
+        .camov .cbar{top:0;bottom:0;left:auto;right:0;width:118px;flex-direction:column;padding:10px 8px}
+        .camov .ctop{right:128px}
+      }</style>
+      <video playsinline autoplay muted></video>
+      <div class="ctop"><div class="cinfo" id="cqtd">📷 Aponte para o buraco<br><span id="cgps">📍 buscando GPS…</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><button class="cb" id="cvira" style="padding:8px 10px">🔄 Trocar câmera</button><button class="cb" id="cnat" style="padding:8px 10px;font-size:12px">câmera do celular</button></div></div>
+      <div class="cbar"><button class="cb" id="cfec">✖ Fechar</button><button class="cshot" id="cbat"></button><button class="cb" id="cok" style="background:#23764a">✔ Pronto</button></div>`;
+    document.body.appendChild(ov);
+    const v = ov.querySelector("video"), fotos = [];
+    let st = null, gps = null, wid = null, cams = [], idx = 0;
+    const sair = r => { try { st && st.getTracks().forEach(t => t.stop()); } catch (e) { } try { wid != null && navigator.geolocation.clearWatch(wid); } catch (e) { } ov.remove(); fim(r); };
+    // GPS ao vivo enquanto a câmera está aberta
+    try {
+      wid = navigator.geolocation.watchPosition(p => {
+        gps = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), acc: Math.round(p.coords.accuracy), em: Date.now() };
+        _ultGPS = gps;
+        const g = ov.querySelector("#cgps"); if (g) g.textContent = `📍 ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)} · ±${gps.acc} m`;
+      }, () => { const g = ov.querySelector("#cgps"); if (g) g.textContent = "📍 sem GPS (ligue a localização)"; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+    } catch (e) { }
+    async function abrir(deviceId) {
+      try { st && st.getTracks().forEach(t => t.stop()); } catch (e) { }
+      const res = { width: { ideal: 2560 }, height: { ideal: 1920 } };
+      const tent = deviceId ? [{ deviceId: { exact: deviceId }, ...res }] : [{ facingMode: { exact: "environment" }, ...res }, { facingMode: { ideal: "environment" }, ...res }, res];
+      for (const c of tent) { try { st = await navigator.mediaDevices.getUserMedia({ video: c, audio: false }); break; } catch (e) { st = null; } }
+      if (!st) throw new Error("sem câmera");
+      v.srcObject = st; await v.play();
+    }
+    try {
+      await abrir(null);
+      const t = await camTraseira(); cams = t.ds;
+      // abriu a de selfie? troca para a traseira pelo nome
+      const atual = st.getVideoTracks()[0], set = atual.getSettings ? atual.getSettings() : {};
+      if (set.facingMode === "user" || /front|frontal|selfie/i.test(atual.label || "")) { if (t.id) await abrir(t.id); }
+      idx = Math.max(0, cams.findIndex(d => d.deviceId === (st.getVideoTracks()[0].getSettings?.().deviceId)));
+    } catch (e) { aviso("⚠ Não abriu a câmera aqui — usando a câmera do celular"); return sair("nativa"); }
+    ov.querySelector("#cvira").onclick = async () => { if (cams.length < 2) return aviso("Só achei uma câmera"); idx = (idx + 1) % cams.length; try { await abrir(cams[idx].deviceId); } catch (e) { aviso("Não abriu essa câmera"); } };
+    const cont = () => { const q = ov.querySelector("#cqtd"); q.firstChild.textContent = fotos.length ? `📷 ${fotos.length} foto(s) batida(s)` : "📷 Aponte para o buraco"; };
+    ov.querySelector("#cbat").onclick = async () => {
+      if (!v.videoWidth) return;
+      const k = Math.min(1, 2560 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement("canvas");
+      cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+      const x = cv.getContext("2d"); x.drawImage(v, 0, 0, cv.width, cv.height);
+      // carimbo no rodapé: coordenada + precisão + data/hora
+      const d = new Date(), dt = d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR");
+      const l1 = gps ? `${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}  ±${gps.acc} m` : "sem GPS", l2 = dt + " · Triagem OS";
+      const fs = Math.max(18, Math.round(cv.width / 38)); x.font = `bold ${fs}px Arial`;
+      const w = Math.max(x.measureText(l1).width, x.measureText(l2).width) + fs;
+      x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(cv.width - w - fs * .5, cv.height - fs * 3.1, w, fs * 2.7);
+      x.fillStyle = "#fff"; x.fillText(l1, cv.width - w, cv.height - fs * 1.75); x.fillText(l2, cv.width - w, cv.height - fs * .55);
+      const b = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.9)); if (!b) return;
+      const f = new File([b], "TRIAGEM_" + Date.now() + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
+      if (gps) f._gps = { ...gps };
+      fotos.push(f);
+      v.style.opacity = ".2"; setTimeout(() => v.style.opacity = "1", 110);
+      try { somOk(); } catch (e) { }
+      cont();
+    };
+    ov.querySelector("#cok").onclick = () => sair(fotos);
+    ov.querySelector("#cfec").onclick = () => sair(fotos.length && confirm(`Usar as ${fotos.length} foto(s) batidas?`) ? fotos : []);
+    ov.querySelector("#cnat").onclick = () => sair(fotos.length ? fotos : "nativa");
+  });
+}
+/* fotos da triagem em andamento ficam guardadas até salvar — se o app fechar, nada se perde */
+async function guardarFotosRasc(l) {
+  try { const a = (await kvGet("rascFotos")) || []; for (const f of l) a.push({ b: f, n: f.name, t: f.lastModified || Date.now() }); await kvSet("rascFotos", a.slice(-8)); } catch (e) { }
+}
+async function limparRasc() { try { await kvSet("rascFotos", null); } catch (e) { } }
 
 /* ================= Mapa e rota da equipe ================= */
 let ROTA = { equipe: "", data: null, ids: null, inicio: null, modo: "rota" };
@@ -16046,6 +16149,7 @@ async function limparDuplicada3502780() {
 /* uma vez por aparelho: ajusta os mapas das OS antigas pelo endereço */
 async function autoMapas() {
   setTimeout(registrarAcesso, 5000);
+  setTimeout(recuperarFotoCamera, 1500);
   // app/navegador que fica aberto o dia todo também registra (de hora em hora, só com a tela à vista)
   setInterval(() => { if (document.visibilityState === "visible") registrarAcesso(); }, 10 * 60e3);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") registrarAcesso(); });
@@ -16077,6 +16181,24 @@ async function autoMapas() {
     autoMapas();
   } catch (e) { document.body.innerHTML = `<div style="padding:20px;font:15px sans-serif">Erro ao abrir o Triagem OS: ${esc(e.message || e)}</div>`; }
 })();
+
+/* o Android fechou o app enquanto a câmera estava aberta (pouca memória): recupera a foto tirada (APK 1.6+) */
+async function recuperarFotoCamera() {
+  try {
+    if (!ANDROID) return;
+    const caiu = window.Android.renderCaiu ? window.Android.renderCaiu() : 0;
+    const n = window.Android.fotoPendente ? window.Android.fotoPendente() : null;
+    const fotos = [];
+    const rasc = (await kvGet("rascFotos")) || [];
+    for (const x of rasc) if (x && x.b) fotos.push(new File([x.b], x.n || "foto.jpg", { type: "image/jpeg", lastModified: x.t || Date.now() }));
+    if (n) { try { const b = await (await fetch("/__foto/" + n)).blob(); if (b.size) { const f = new File([b], n, { type: "image/jpeg", lastModified: Date.now() }); fotos.push(f); await guardarFotosRasc([f]); } } catch (e) { } }
+    if (!fotos.length) { if (caiu && Date.now() - caiu < 600000) aviso("⚠ A tela reabriu por falta de memória do celular. Feche outros apps e tente de novo.", 7000); return; }
+    if (!EU || (!pode("triar") && !pode("editarTodos"))) return;
+    if (document.querySelector(".sheet-bg.fixa")) return;
+    aviso(`📷 Recuperei ${fotos.length} foto(s) da triagem que não foi salva — abrindo a triagem com elas`, 6000);
+    abrirForm(null, { fotos, semRasc: true });
+  } catch (e) { }
+}
 
 </script>
 </body>
