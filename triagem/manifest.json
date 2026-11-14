@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 55,
+  "v": 56,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-55.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-56.html"
  },
  "apk": {
   "v": 9,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 55: recupera foto da câmera",
+ "nota": "Interface 56: câmera dentro do app e fotos guardadas até salvar",
  "data": "14/11/2026"
 }

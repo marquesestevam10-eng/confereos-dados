@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 55;                       // versão da interface (sobe a cada publicação)
+const APP_V = 56;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -14269,7 +14269,7 @@ function ir(v, arg) {
 const historico = [];
 window.__back = () => {
   if (document.body.classList.contains("relmode")) { fecharRel(); return "closed"; }
-  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa") || confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) u.remove(); return "closed"; }
+  const s = $$(".sheet-bg"); if (s.length) { const u = s[s.length - 1]; if (!u.classList.contains("fixa")) u.remove(); else if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) { limparRasc(); u.remove(); } return "closed"; }
   if ($(".lightbox")) { $(".lightbox").remove(); return "closed"; }
   if (VIEW !== "painel") { ir("painel"); return "closed"; }
   return "none";
@@ -14611,6 +14611,7 @@ function abrirForm(r, op = {}) {
   const novo = !r;
   const T = r ? JSON.parse(JSON.stringify(r.tri)) : { dia: isoDia(), servico: op.tipo ? TIPOS[op.tipo].padrao : "613287", servicoConfirmado: !!(op.tipo && op.tipo !== "asfalto"), entulho: false, trechos: [{ c: "", l: "" }], fotos: [], end: {} };
   const FN = [];          // fotos novas (ainda não carimbadas)
+  const guardarRasc = l => { if (novo) guardarFotosRasc(l); };
   const s = folha(`
     <button class="btn sm" id="fsair" style="float:right;width:auto;flex:none;margin:0 0 4px 8px">✖ Sair</button>
     <h3>${novo ? `📷 Nova triagem${op.tipo ? " de " + TIPOS[op.tipo].n.toLowerCase() : ""}` : "✏️ Editar OS " + esc(r.os)}</h3>
@@ -14846,9 +14847,17 @@ function abrirForm(r, op = {}) {
     $("#fdianota", s).innerHTML = d.certa ? `📅 Pela data da foto: <b>${brHora(d.em)}</b>` : `📅 Data do arquivo: <b>${brHora(d.em)}</b> — a foto não tinha data gravada (foto do WhatsApp perde a data). Confira o dia.`;
     if (isoDia(new Date(d.em)) !== isoDia()) aviso(`📅 Triagem lançada no dia da foto: ${brDia(isoDia(new Date(d.em)))}`);
   }
-  $("#fcam", s).onchange = e => { addFotos([...e.target.files], true); e.target.value = ""; };
+  $("#fcam", s).onchange = e => { const l = [...e.target.files]; guardarRasc(l); addFotos(l, true); e.target.value = ""; };
+  // no app: câmera DENTRO do Triagem OS (a câmera do celular fazia o Android fechar o app e perder as fotos) — interface 56
+  $("#fcam", s).closest("label").addEventListener("click", async ev => {
+    if (!ANDROID || !navigator.mediaDevices?.getUserMedia) return;
+    ev.preventDefault();
+    const l = await cameraInterna();
+    if (l === "nativa") return $("#fcam", s).click();
+    if (l && l.length) { guardarRasc(l); addFotos(l, true); }
+  });
   if (op.fotos && op.fotos.length) setTimeout(() => addFotos(op.fotos, true), 300);   // foto recuperada da câmera
-  $("#fgal", s).onchange = e => { addFotos([...e.target.files], false); e.target.value = ""; };
+  $("#fgal", s).onchange = e => { const l = [...e.target.files]; guardarRasc(l); addFotos(l, false); e.target.value = ""; };
   $("#fpeloend", s).onclick = () => mapaPeloEndereco(true);
   $("#fgps", s).onclick = async () => { aviso("📡 Pegando o GPS…", 8000); const g = await gpsAgora(); if (!g) return aviso("GPS indisponível. Ligue a localização do celular."); definirLoc({ lat: g.lat, lng: g.lng, origem: "gps", acc: g.acc, agora: 1 }); };
   // link de localização mandado por e-mail/WhatsApp (interface 52)
@@ -14874,7 +14883,7 @@ function abrirForm(r, op = {}) {
   };
 
   // ---- salvar
-  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) fecharFolha(s); };
+  $("#fsair", s).onclick = () => { if (confirm("Sair da triagem sem salvar?\nO que foi preenchido será perdido.")) { limparRasc(); fecharFolha(s); } };
   $("#fsalvar", s).onclick = async () => {
     const os = $("#fos", s).value.trim().toUpperCase().replace(/\s/g, "");
     if (!os) return aviso("Informe o número da OS");
@@ -14909,7 +14918,7 @@ function abrirForm(r, op = {}) {
     T.upd = Date.now(); T.por = EU.id;
     rec.tri = T; rec.os = os;
     await salvarOS(rec, novo ? "triada" : "editada");
-    fecharFolha(s); render();
+    limparRasc(); fecharFolha(s); render();
     if (novo) {
       const msg = textoOS(OS.get(rec.id));
       const f2 = folha(`<h3>✅ OS ${esc(os)} cadastrada</h3><div class="card" style="font-size:14.5px">${esc(msg)}</div>
@@ -14921,6 +14930,50 @@ function abrirForm(r, op = {}) {
   desenhaTrechos(); desenhaFotos(); desenhaLoc(); checaOS();
   if (op.voz) setTimeout(porVoz, 300);
 }
+
+/* ---------- câmera dentro do app (interface 56): várias fotos sem sair do Triagem OS ---------- */
+function cameraInterna() {
+  return new Promise(async fim => {
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column";
+    ov.innerHTML = `<video playsinline autoplay muted style="flex:1;width:100%;object-fit:cover;background:#000"></video>
+      <div id="cqtd" style="position:absolute;top:12px;left:12px;color:#fff;font:600 15px system-ui;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:8px">📷 Aponte para o buraco</div>
+      <div style="display:flex;align-items:center;justify-content:space-around;padding:14px 8px 22px;background:#111">
+        <button id="cfec" style="background:#333;color:#fff;border:0;border-radius:10px;padding:12px 14px;font:600 14px system-ui">✖ Fechar</button>
+        <button id="cbat" style="width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#f2b705"></button>
+        <button id="cok" style="background:#23764a;color:#fff;border:0;border-radius:10px;padding:12px 14px;font:600 14px system-ui">✔ Pronto</button>
+      </div>
+      <button id="cnat" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;border:0;border-radius:8px;padding:6px 10px;font:13px system-ui">câmera do celular</button>`;
+    document.body.appendChild(ov);
+    const v = ov.querySelector("video"), fotos = [];
+    let st = null;
+    const sair = r => { try { st && st.getTracks().forEach(t => t.stop()); } catch (e) { } ov.remove(); fim(r); };
+    try {
+      st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false });
+      v.srcObject = st; await v.play();
+    } catch (e) { aviso("⚠ Não abriu a câmera aqui — usando a câmera do celular"); return sair("nativa"); }
+    const cont = () => ov.querySelector("#cqtd").textContent = fotos.length ? `📷 ${fotos.length} foto(s) batida(s)` : "📷 Aponte para o buraco";
+    ov.querySelector("#cbat").onclick = async () => {
+      if (!v.videoWidth) return;
+      const k = Math.min(1, 2560 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement("canvas");
+      cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+      cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height);
+      const b = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.9)); if (!b) return;
+      fotos.push(new File([b], "TRIAGEM_" + Date.now() + ".jpg", { type: "image/jpeg", lastModified: Date.now() }));
+      ov.style.background = "#fff"; setTimeout(() => ov.style.background = "#000", 90);
+      try { somOk(); } catch (e) { }
+      cont();
+    };
+    ov.querySelector("#cok").onclick = () => sair(fotos);
+    ov.querySelector("#cfec").onclick = () => sair(fotos.length && confirm(`Usar as ${fotos.length} foto(s) batidas?`) ? fotos : []);
+    ov.querySelector("#cnat").onclick = () => sair(fotos.length ? fotos : "nativa");
+  });
+}
+/* fotos da triagem em andamento ficam guardadas até salvar — se o app fechar, nada se perde */
+async function guardarFotosRasc(l) {
+  try { const a = (await kvGet("rascFotos")) || []; for (const f of l) a.push({ b: f, n: f.name, t: f.lastModified || Date.now() }); await kvSet("rascFotos", a.slice(-8)); } catch (e) { }
+}
+async function limparRasc() { try { await kvSet("rascFotos", null); } catch (e) { } }
 
 /* ================= Mapa e rota da equipe ================= */
 let ROTA = { equipe: "", data: null, ids: null, inicio: null, modo: "rota" };
@@ -16086,12 +16139,15 @@ async function recuperarFotoCamera() {
     if (!ANDROID) return;
     const caiu = window.Android.renderCaiu ? window.Android.renderCaiu() : 0;
     const n = window.Android.fotoPendente ? window.Android.fotoPendente() : null;
-    if (!n) { if (caiu && Date.now() - caiu < 600000) aviso("⚠ A tela reabriu por falta de memória do celular. Feche outros apps e tente de novo.", 7000); return; }
+    const fotos = [];
+    const rasc = (await kvGet("rascFotos")) || [];
+    for (const x of rasc) if (x && x.b) fotos.push(new File([x.b], x.n || "foto.jpg", { type: "image/jpeg", lastModified: x.t || Date.now() }));
+    if (n) { try { const b = await (await fetch("/__foto/" + n)).blob(); if (b.size) { const f = new File([b], n, { type: "image/jpeg", lastModified: Date.now() }); fotos.push(f); await guardarFotosRasc([f]); } } catch (e) { } }
+    if (!fotos.length) { if (caiu && Date.now() - caiu < 600000) aviso("⚠ A tela reabriu por falta de memória do celular. Feche outros apps e tente de novo.", 7000); return; }
     if (!EU || (!pode("triar") && !pode("editarTodos"))) return;
-    const b = await (await fetch("/__foto/" + n)).blob(); if (!b.size) return;
-    const f = new File([b], n, { type: "image/jpeg", lastModified: Date.now() });
-    aviso("📷 Recuperei a foto que você tirou — abrindo a triagem com ela", 5000);
-    abrirForm(null, { fotos: [f] });
+    if (document.querySelector(".sheet-bg.fixa")) return;
+    aviso(`📷 Recuperei ${fotos.length} foto(s) da triagem que não foi salva — abrindo a triagem com elas`, 6000);
+    abrirForm(null, { fotos, semRasc: true });
   } catch (e) { }
 }
 
