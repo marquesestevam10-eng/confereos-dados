@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 57,
+  "v": 58,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-57.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-58.html"
  },
  "apk": {
   "v": 9,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 57: câmera traseira, deitada e com coordenada na foto",
- "data": "14/11/2026"
+ "nota": "Interface 58: código 613202",
+ "data": "16/11/2026"
 }
