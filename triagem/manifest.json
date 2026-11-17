@@ -1,14 +1,14 @@
 {
  "app": {
-  "v": 58,
+  "v": 59,
   "url": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app.html",
-  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-58.html"
+  "url_v": "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/app-59.html"
  },
  "apk": {
   "v": 9,
   "url": "https://github.com/marquesestevam10-eng/Rastreador-OS/releases",
   "nota": "Instale a versão nova do Triagem OS"
  },
- "nota": "Interface 58: código 613202",
- "data": "16/11/2026"
+ "nota": "Interface 59: aviso do app novo pode ser escondido por 7 dias",
+ "data": "17/11/2026"
 }

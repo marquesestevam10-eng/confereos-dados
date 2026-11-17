@@ -13296,7 +13296,7 @@ const LOGINS = {"estevam": {"s": "1xLWkYgC9LMLU0tbH05OUw==", "i": "3N5J64/aamc/I
 
 "use strict";
 /* ================= Triagem OS — núcleo ================= */
-const APP_V = 58;                       // versão da interface (sobe a cada publicação)
+const APP_V = 59;                       // versão da interface (sobe a cada publicação)
 const UPD_URL = "https://raw.githubusercontent.com/marquesestevam10-eng/confereos-dados/main/triagem/manifest.json";
 const RELEASES = "https://github.com/marquesestevam10-eng/Rastreador-OS/releases";
 const ESP = 0.03, DENS = 2.4, TON_M2 = ESP * DENS, CARGA = 6;   // 3 cm · 2,4 t/m³ → 0,072 t/m² · caminhão 6 t
@@ -16109,8 +16109,10 @@ async function checarAtualizacao(manual) {
       } else msg("Há versão nova " + m.app.v);
     } else msg(`✅ Você já está na versão mais nova (interface ${APP_V})`);
     const apk = ANDROID && window.Android.apkVersion ? window.Android.apkVersion() : 0;
-    if (m.apk && apk && m.apk.v > apk && !$(".apkbar")) {
-      const d = document.createElement("div"); d.className = "card apkbar"; d.innerHTML = `<b>📲 Nova versão do aplicativo</b><div class="small">${esc(m.apk.nota || "Precisa instalar de novo só desta vez.")}</div><a class="btn y w" style="margin-top:8px" href="${esc(m.apk.url || RELEASES)}">Baixar</a>`;
+    let adiou = 0; try { adiou = +localStorage.getItem("apkAdiado" + m.apk?.v) || 0; } catch (e) {}
+    if (m.apk && apk && m.apk.v > apk && !$(".apkbar") && (manual || Date.now() - adiou > 7 * 864e5)) {
+      const d = document.createElement("div"); d.className = "card apkbar"; d.innerHTML = `<b>📲 Nova versão do aplicativo</b><div class="small">${esc(m.apk.nota || "Precisa instalar de novo só desta vez.")}</div><a class="btn y w" style="margin-top:8px" href="${esc(m.apk.url || RELEASES)}">Baixar</a><button class="btn sm w" style="margin-top:6px" id="apkdep">Agora não (esconder por 7 dias)</button>`;
+      d.querySelector("#apkdep").onclick = () => { try { localStorage.setItem("apkAdiado" + m.apk.v, Date.now()); } catch (e) {} d.remove(); };
       $("#main").prepend(d);
     }
   } catch (e) { msg("Não consegui procurar atualização: " + (e.message || "sem internet")); }
