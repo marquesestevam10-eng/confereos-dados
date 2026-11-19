@@ -1,8 +1,8 @@
 {
- "v": 11,
+ "v": 12,
  "data": "17/11/2026",
- "dados": "d-f8270319524f.bin",
- "nota": "Triagens de novembro do Triagem OS: 156 OS · calçada inclui 613202/613214/613267/613271; paralelo inclui 613275",
+ "dados": "d-182c3b7ac2aa.bin",
+ "nota": "Triagens de novembro do Triagem OS: 34 OS",
  "fotos": {
   "28": "f-28-447a0f9812.bin",
   "29": "f-29-58b1a04953.bin",
@@ -17,7 +17,10 @@
   "38": "f-38-a8512925ed.bin",
   "39": "f-39-65222644ae.bin",
   "40": "f-40-d065b9154b.bin",
-  "41": "f-41-7c1a552199.bin"
+  "41": "f-41-7c1a552199.bin",
+  "42": "f-42-54ad8a6885.bin",
+  "43": "f-43-b347ec254d.bin",
+  "44": "f-44-9bc77b9977.bin"
  },
  "mapas": {
   "29": "m-29-b88eae081f.bin"
