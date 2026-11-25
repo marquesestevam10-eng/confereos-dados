@@ -1,0 +1,2 @@
+/* gerado por cadastro/web/logins.py — sem a senha não abre */
+const LOGINS = {"estevam": {"s": "XrLmCJZvNih3sjtCf5Iedg==", "i": "XijwrEB4qhEzpl1Q", "n": 310000, "c": "6R8PpAFBV4zhSOObzCLtFe7UTdcb+ooDbUM25rewCYkB4ZRftNgAK5tNC5jGg6UX7SSF/1/vFFDiqjJnqV9bfq0i15392b9dKxowf2hmbGmcnLSdKuwL4oxwTTgG+JugR04piJ/RQVzd0jL5iA=="}, "coordenador": {"s": "MgZGGIFKXiYRbIS0JJJPIw==", "i": "EH0I00CRN0+WlSGX", "n": 310000, "c": "xB7qH1dfBLPI6CQbs6Ejl/U4ZChkw7RbSpvqx838jM9/yEaYy7wco4gl6Iwoz27KfbICnvEmdTOJrwCoxuJ747YSe0MjjBwZ5XtH3LLT835Tud+vgdGjNAMiPhRx+iU2Ko/tD05rpyE2qcp+rQ=="}};
