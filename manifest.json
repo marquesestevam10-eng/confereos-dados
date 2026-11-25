@@ -1,8 +1,8 @@
 {
- "v": 13,
- "data": "24/11/2026",
- "dados": "d-d0b9b14765a1.bin",
- "nota": "Códigos de 16 OS acertados pela planilha do sistema",
+ "v": 14,
+ "data": "17/11/2026",
+ "dados": "d-218226d97fc4.bin",
+ "nota": "Triagens de novembro do Triagem OS: 107 OS",
  "fotos": {
   "28": "f-28-447a0f9812.bin",
   "29": "f-29-58b1a04953.bin",
@@ -20,7 +20,11 @@
   "41": "f-41-7c1a552199.bin",
   "42": "f-42-54ad8a6885.bin",
   "43": "f-43-b347ec254d.bin",
-  "44": "f-44-9bc77b9977.bin"
+  "44": "f-44-9bc77b9977.bin",
+  "45": "f-45-a133a78685.bin",
+  "46": "f-46-c651e5071a.bin",
+  "47": "f-47-6c00763bab.bin",
+  "48": "f-48-00fdcee454.bin"
  },
  "mapas": {
   "29": "m-29-b88eae081f.bin"
